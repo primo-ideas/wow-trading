@@ -13,6 +13,13 @@ module MarketsHelper
       class: ("is-sorted" if current), "aria-sort": (current ? (listing.dir == "asc" ? "ascending" : "descending") : nil)
   end
 
+  # A column header that sorts the deals by this column, always in the same direction.
+  def deals_sort_link(label, column, deals)
+    current = deals.sort == column
+    link_to "#{label}#{" ↓" if current}", deals_market_path(@market, sort: column),
+      class: ("is-sorted" if current), "aria-sort": ("descending" if current)
+  end
+
   def listing_page_path(market, listing, page)
     market_path(market, listing_params(listing).merge(sort: listing.sort, dir: listing.dir, page: page))
   end

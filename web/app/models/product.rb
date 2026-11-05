@@ -12,6 +12,9 @@ class Product
 
   def pet? = variant.start_with?(PET_PREFIX)
 
+  # As in `listed_products`: gear adds up into one product, each caged pet is its own.
+  def series = pet? ? variant : ""
+
   def name = pet&.name.presence || item.display_name
 
   def icon_url = pet&.icon_url.presence || item.icon_url

@@ -1,0 +1,19 @@
+<div class="page-head">
+  <div>
+    <p class="eyebrow"><%= market.region.upcase %> · <%= market.commodities? ? "Whole region" : "Connected realm" %></p>
+    <h1 class="market-title" title="<%= market.display_name %>"><%= market.display_name %></h1>
+  </div>
+  <%= freshness(taken_at) %>
+</div>
+
+<nav class="tabs" aria-label="Markets">
+  <% market_tabs(market).each do |tab| %>
+    <% selected = section == :listing && tab.id == market.id %>
+    <%= link_to short_market_name(tab), market_path(tab),
+          class: ("is-selected" if selected),
+          "aria-current": ("page" if selected) %>
+  <% end %>
+  <%= link_to "Deals", deals_market_path(market),
+        class: [ "tab-end", ("is-selected" if section == :deals) ],
+        "aria-current": ("page" if section == :deals) %>
+</nav>

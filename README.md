@@ -122,7 +122,7 @@ Prices are in copper (1 gold = 10,000) and dates in UTC.
 | `price_points` | Minimum price, 1st quartile, median, 3rd quartile, mean, quantity and number of auctions, per item and per snapshot |
 | `sales_points` | Quantity, value and number of auctions sold, per item, between two snapshots |
 | `price_points_daily`, `sales_points_daily` | The same data, per UTC day, once out of the retention period |
-| `listed_products` | What a market has for sale at the latest snapshot: the variants of a piece of gear added up, 24-hour sales and the 24-hour change. Replaced at each snapshot, this is what the site's listings read |
+| `listed_products` | What a market has for sale at the latest snapshot: the variants of a piece of gear added up, 24-hour sales, the 24-hour change, and the usual cheapest price over 3 days. Replaced at each snapshot, this is what the site's listings read |
 | `items` | Name, quality, level, class and icon of items. `name` is `NULL`: not looked up yet, or unknown to the API |
 | `pets` | Name and icon of pet species |
 
@@ -157,8 +157,16 @@ This remains an estimate. A cancelled auction looks like a sale, which inflates 
 
 - `/`: the last realm visited, or failing that the list of markets (`/markets`).
 - `/markets/:id`: the biggest rises and falls over 24 hours and the most traded, then everything for sale at the latest snapshot, to sort and filter by name, id, category or quality, ignoring accents and case.
-- `/markets/:id/items/:id`: price curves, estimated sales and quantity for sale, over 24 hours, 7, 30 or 90 days, or the whole history. Each chart has its data table.
+- `/markets/:id/deals`: what sells well below its usual price, with what is left after reselling at that price. See [Deals](#deals).
+- `/markets/:id/items/:id`: price curves, estimated sales and quantity for sale, over 24 hours, 7, 30 or 90 days, or the whole history. Each chart has its data table. The page also gives the usual cheapest price, the same product on the other markets of the region, and a CSV download of the prices (`.csv`, in copper and UTC).
 - `/search`: searches the player's realm and the commodities of its region. The header of each page offers suggestions as you type, with `/` or Ctrl-K to get there.
+- `/watchlist`: the products a reader follows, at their latest prices. It lives in a cookie: the site has no accounts, and never writes to its database.
+
+### Deals
+
+A deal is measured on the cheapest listing, compared to the median of its cheapest price over the last 3 days. That is what a buyer actually pays, while the two other candidates mislead: asking prices can be absurd with nobody buying, and estimated sales count cancelled listings. On real data, comparing to the median listing put a 10 gold backpack first, against a median of 19,800 gold that nobody pays.
+
+A product shows up with at least 24 snapshots of history, a margin of 20% and a profit of 1 gold after the auction house's 5% cut. Gear in several variants is left out, as a low item level is not a bargain. These thresholds have not been checked against real data yet, as no market had a day of history when they were written.
 
 The schema belongs to the fetcher: the site has no migrations, and outside tests Postgres refuses its writes (`default_transaction_read_only`). Its tests load the fetcher's migrations, so a schema change that breaks the site makes them fail. They wipe their database and refuse to run on a database whose name does not end in `_test`.
 

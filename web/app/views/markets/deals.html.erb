@@ -1,0 +1,66 @@
+<% content_for :title, "Deals · #{@market.display_name}" %>
+
+<%= render "markets/head", market: @market, taken_at: @deals.latest_taken_at, section: :deals %>
+
+<% if !@deals.ready? %>
+  <div class="empty-state">
+    <h2>Not enough history yet</h2>
+    <p>A deal is a product whose cheapest listing is well below its usual cheapest price, and knowing what is usual takes about a day of snapshots. This market has <%= @deals.snapshots_so_far %> of the <%= ListedProduct::MIN_USUAL_POINTS %> it needs.</p>
+  </div>
+<% elsif @deals.rows.empty? %>
+  <div class="empty-state">
+    <h2>No deals right now</h2>
+    <p>Nothing on this market is far enough below its usual price. Listings change with every snapshot.</p>
+  </div>
+<% else %>
+  <div class="listing-summary">
+    <span>
+      <strong><%= number_with_delimiter(@deals.total) %></strong>
+      <%= "product".pluralize(@deals.total) %> well below the usual price<%= ", the top #{MarketDeals::LIMIT} shown" if @deals.total > MarketDeals::LIMIT %>
+    </span>
+  </div>
+
+  <div class="table-wrap">
+    <table class="listing">
+      <thead>
+        <tr>
+          <th scope="col">Product</th>
+          <th scope="col" class="number">Cheapest now</th>
+          <th scope="col" class="number col-medium">Usually</th>
+          <th scope="col" class="number"><%= deals_sort_link "Below usual", "discount", @deals %></th>
+          <th scope="col" class="number"><%= deals_sort_link "Resale profit", "profit", @deals %></th>
+          <th scope="col" class="number col-medium">For sale</th>
+          <th scope="col" class="number col-wide"><%= deals_sort_link "Sold, 24h", "sold", @deals %></th>
+        </tr>
+      </thead>
+      <tbody>
+        <% price_units = money_units(@deals.rows.map(&:min_price)) %>
+        <% usual_units = money_units(@deals.rows.map(&:usual_price)) %>
+        <% profit_units = money_units(@deals.rows.map(&:resale_profit)) %>
+        <% @deals.rows.each do |row| %>
+          <tr>
+            <td>
+              <div class="product-cell">
+                <%= product_icon(row.icon_url, row.quality) %>
+                <span class="product-label">
+                  <%= link_to row.display_name, market_item_path(@market, row.item_id, variant: row.variant_param),
+                        class: "product-link #{quality_class(row.quality)}" %>
+                </span>
+              </div>
+            </td>
+            <td class="number"><%= money_cell(row.min_price, units: price_units) %></td>
+            <td class="number col-medium"><%= money_cell(row.usual_price, units: usual_units) %></td>
+            <td class="number deal-discount"><%= number_to_percentage(row.discount * 100, precision: 0) %></td>
+            <td class="number"><%= money_cell(row.resale_profit, units: profit_units) %></td>
+            <td class="number col-medium"><%= number_with_delimiter(row.quantity) %></td>
+            <td class="number col-wide"><%= row.sold_quantity ? number_with_delimiter(row.sold_quantity) : "—" %></td>
+          </tr>
+        <% end %>
+      </tbody>
+    </table>
+  </div>
+<% end %>
+
+<p class="note">
+  “Usually” is the median of the cheapest price over the last 3 days. The resale profit assumes selling at that price, after the auction house's <%= number_to_percentage(Flip::AUCTION_HOUSE_CUT * 100, precision: 0) %> cut. The cheapest listing can be a single unit, and a price can fall for good reasons, like a patch: check the curve first.
+</p>

@@ -9,6 +9,12 @@ class MarketsController < ApplicationController
   def index
   end
 
+  def deals
+    @market = AuctionHouse.find(params[:id])
+    remember(@market)
+    @deals = MarketDeals.new(@market, sort: params[:sort])
+  end
+
   def show
     @market = AuctionHouse.find(params[:id])
     remember(@market)

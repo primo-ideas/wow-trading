@@ -36,6 +36,17 @@ module ProductsHelper
     end
   end
 
+  # Adds a product to the reader's watchlist, or takes it off.
+  def watch_button(market_id, item_id, series, compact: false)
+    watching = watchlist.include?(market_id, item_id, series)
+    label = watching ? "★ Watching" : "☆ Watch"
+    button_to (compact ? label.first : label), watchlist_path, method: :patch,
+      params: { market_id: market_id, item_id: item_id, series: series },
+      class: [ "watch-button", ("is-watching" if watching) ], form_class: "watch-form",
+      title: watching ? "Remove from your watchlist" : "Add to your watchlist",
+      "aria-pressed": watching, form: { data: { turbo_frame: "_top" } }
+  end
+
   def sparkline(values)
     line = Sparkline.new(values)
     return tag.span("", class: "sparkline-empty") unless line.drawable?

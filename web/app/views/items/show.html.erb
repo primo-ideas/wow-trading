@@ -18,7 +18,10 @@
       <li><%= link_to "View on Wowhead ↗", @product.wowhead_url, rel: "noopener noreferrer", target: "_blank" %></li>
     </ul>
   </div>
-  <%= freshness(@history.latest_taken_at) %>
+  <div class="product-head-side">
+    <%= freshness(@history.latest_taken_at) %>
+    <%= watch_button(@market.id, @item.id, @product.series) %>
+  </div>
 </header>
 
 <turbo-frame id="item-data" data-turbo-action="advance">
@@ -53,6 +56,9 @@
         </div>
       </details>
     <% end %>
+
+    <%= link_to "Download CSV", market_item_path(@market, @item, variant: @variant.presence, period: @history.period, format: :csv),
+          class: "link-quiet csv-link", data: { turbo: false } %>
   </div>
 
   <% if @history.prices.empty? %>
@@ -93,6 +99,14 @@
           <dt>Value sold over 24h <small class="muted">estimate</small></dt>
           <dd><%= money(@history.sold_value_last_day) %></dd>
         </div>
+        <div>
+          <dt>Usual minimum <small class="muted">3 days</small></dt>
+          <dd><%= money(@listed&.usual_price) %></dd>
+        </div>
+        <div>
+          <dt>Resale at usual minimum <small class="muted">after <%= number_to_percentage(Flip::AUCTION_HOUSE_CUT * 100, precision: 0) %> cut</small></dt>
+          <dd><%= @listed&.resale_profit&.positive? ? money(@listed.resale_profit) : "—" %></dd>
+        </div>
       </dl>
     </section>
 
@@ -109,3 +123,7 @@
     <p class="note"><%= render "shared/sales_note" %></p>
   <% end %>
 </turbo-frame>
+
+<% if @across_markets.comparable? %>
+  <%= render "items/across_markets", across_markets: @across_markets, item: @item, current_min: @listed&.min_price %>
+<% end %>

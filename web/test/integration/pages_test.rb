@@ -386,6 +386,183 @@ class PagesTest < ActionDispatch::IntegrationTest
     assert_no_match "<script>alert", response.body
   end
 
+  test "a market page links to its deals, which explain why there are none at first" do
+    seed_item
+
+    get market_path(@market)
+    assert_select ".tabs a[href=?]", deals_market_path(@market), "Deals"
+
+    get deals_market_path(@market)
+    assert_response :success
+    assert_select ".tabs a.is-selected", "Deals"
+    assert_select ".empty-state", /Not enough history yet/
+  end
+
+  test "the deals page shows what to buy, and what is left after the cut" do
+    seed_item
+    ListedProduct.where(item_id: 2589).update_all(
+      min_price: 100_000, usual_min_price: 200_000, usual_min_points: ListedProduct::MIN_USUAL_POINTS
+    )
+
+    get deals_market_path(@market)
+
+    assert_response :success
+    assert_select "a.product-link[href=?]", market_item_path(@market, 2589), "Linen Cloth"
+    assert_select ".money[aria-label=?]", "10g"
+    assert_select ".money[aria-label=?]", "20g"
+    assert_select ".money[aria-label=?]", "9g"
+    assert_select ".deal-discount", "50%"
+    assert_select "th a.is-sorted", /Resale profit/
+
+    get deals_market_path(@market), params: { sort: "discount" }
+    assert_select "th a.is-sorted", /Below usual/
+  end
+
+  test "deals say so when nothing is below its usual price" do
+    seed_item
+    ListedProduct.where(item_id: 2589).update_all(
+      min_price: 100_000, usual_min_price: 100_000, usual_min_points: ListedProduct::MIN_USUAL_POINTS
+    )
+
+    get deals_market_path(@market)
+
+    assert_select ".empty-state", /No deals right now/
+  end
+
+  test "deals of an unknown market are not found" do
+    get deals_market_path(0)
+
+    assert_response :not_found
+  end
+
+  test "an item page gives its usual price and the margin of reselling at it" do
+    seed_item
+    ListedProduct.where(item_id: 2589).update_all(
+      min_price: 100_000, usual_min_price: 200_000, usual_min_points: ListedProduct::MIN_USUAL_POINTS
+    )
+
+    get market_item_path(@market, 2589)
+
+    assert_select ".summary-facts dt", /Usual minimum/
+    assert_select ".summary-facts .money[aria-label=?]", "20g"
+    assert_select ".summary-facts .money[aria-label=?]", "9g"
+  end
+
+  test "without enough history, an item page has no usual price to give" do
+    seed_item
+
+    get market_item_path(@market, 2589)
+
+    assert_response :success
+    assert_select ".summary-facts dt", /Usual minimum/
+    assert_select ".summary-facts dd", "—"
+  end
+
+  test "watching a product adds it to the watchlist, and pressing again removes it" do
+    seed_item
+
+    get watchlist_path
+    assert_select ".empty-state", /Nothing here yet/
+    assert_select ".header-link small", false
+
+    patch watchlist_path, params: { market_id: @market.id, item_id: 2589, series: "" }
+    assert_redirected_to watchlist_path
+
+    follow_redirect!
+    assert_select "a.product-link[href=?]", market_item_path(@market, 2589), "Linen Cloth"
+    assert_select ".header-link small", "1"
+
+    get market_item_path(@market, 2589)
+    assert_select ".watch-button.is-watching"
+
+    patch watchlist_path, params: { market_id: @market.id, item_id: 2589, series: "" }
+    follow_redirect!
+    assert_select ".empty-state", /Nothing here yet/
+  end
+
+  test "watching goes back to the page it came from" do
+    seed_item
+    page = market_item_path(@market, 2589)
+
+    patch watchlist_path, params: { market_id: @market.id, item_id: 2589, series: "" },
+      headers: { "HTTP_REFERER" => "http://www.example.com#{page}" }
+
+    assert_response :see_other
+    assert_redirected_to page
+  end
+
+  test "a watched product no longer on sale is counted, not lost" do
+    create_snapshot(@market, NOW)
+    create_item(2589)
+    cookies[:watchlist] = "#{@market.id}.2589"
+
+    get watchlist_path
+
+    assert_response :success
+    assert_select ".note", /1 product you follow has no listing/
+  end
+
+  test "a watchlist cookie that makes no sense does not break the pages" do
+    seed_item
+    cookies[:watchlist] = "'; DROP TABLE items; --_99999999999.1_.."
+
+    get watchlist_path
+    assert_response :success
+
+    get market_path(@market)
+    assert_response :success
+  end
+
+  test "an item page compares the product to the other markets of its region" do
+    seed_item
+    other = create_market(connected_realm_id: 1302, name: "Archimonde")
+    create_snapshot(other, NOW)
+    create_price(other, 2589, NOW, min: 30_000)
+
+    get market_item_path(@market, 2589)
+
+    assert_select ".across-markets a.product-link[href=?]", market_item_path(other, 2589), "Archimonde"
+    assert_select ".across-markets tr.is-current", /Archimonde \/ Naxxramas/
+  end
+
+  test "an item page has no comparison on a single market" do
+    seed_item
+
+    get market_item_path(@market, 2589)
+
+    assert_select ".across-markets", false
+  end
+
+  test "an item's prices can be downloaded, in copper and UTC" do
+    seed_item
+
+    get market_item_path(@market, 2589, period: "30d", format: :csv)
+
+    assert_response :success
+    assert_equal "text/csv", response.media_type
+    assert_match "archimonde-naxxramas-2589-30d.csv", response.headers["Content-Disposition"]
+    lines = response.body.lines(chomp: true)
+    assert_equal "time,median_price,min_price,p25_price,p75_price,quantity,listings,daily", lines.first
+    assert_equal "2026-11-05T12:00:00Z,123456,61728,123446,123466,5,1,false", lines.last
+    assert_equal 3, lines.size
+  end
+
+  test "an item page links to its download, for the period shown" do
+    seed_item
+
+    get market_item_path(@market, 2589), params: { period: "30d" }
+
+    assert_select "a.csv-link[href=?]", market_item_path(@market, 2589, period: "30d", format: :csv)
+  end
+
+  test "an unknown format is refused" do
+    seed_item
+
+    get market_item_path(@market, 2589, format: :xml)
+
+    assert_response :not_acceptable
+  end
+
   test "text typed in a search is escaped" do
     seed_item
 

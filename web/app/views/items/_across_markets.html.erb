@@ -1,0 +1,37 @@
+<section class="across-markets" aria-labelledby="across-markets-title">
+  <h2 id="across-markets-title">On other markets</h2>
+  <p class="muted">The <%= across_markets.rows.size %> cheapest in this region, at their latest snapshot.</p>
+  <% price_units = money_units(across_markets.rows.map(&:min_price)) %>
+  <% median_units = money_units(across_markets.rows.map(&:median_price)) %>
+  <div class="table-wrap">
+    <table class="listing">
+      <thead>
+        <tr>
+          <th scope="col">Market</th>
+          <th scope="col" class="number">Minimum</th>
+          <th scope="col" class="number">Compared to here</th>
+          <th scope="col" class="number col-medium">Median</th>
+          <th scope="col" class="number col-medium">For sale</th>
+        </tr>
+      </thead>
+      <tbody>
+        <% across_markets.rows.each do |row| %>
+          <% here = across_markets.current?(row) %>
+          <tr class="<%= "is-current" if here %>">
+            <td>
+              <% if here %>
+                <%= row.market_name %> <small class="muted">here</small>
+              <% else %>
+                <%= link_to row.market_name, market_item_path(row.auction_house_id, item, variant: row.variant_param), class: "product-link" %>
+              <% end %>
+            </td>
+            <td class="number"><%= money_cell(row.min_price, units: price_units) %></td>
+            <td class="number"><%= here ? "—" : change_pill(change_between(row.min_price, current_min)) %></td>
+            <td class="number col-medium"><%= money_cell(row.median_price, units: median_units) %></td>
+            <td class="number col-medium"><%= number_with_delimiter(row.quantity) %></td>
+          </tr>
+        <% end %>
+      </tbody>
+    </table>
+  </div>
+</section>

@@ -51,6 +51,29 @@ sudo DOMAIN=trading.example.com ./deploy/install.sh
 
 The site has no authentication: once public, anyone can read it. It cannot change the database, as its Postgres role only has read access.
 
+### Next to other sites
+
+If the domain serves other things, give the site a path of its own. Where Apache already runs, with a certificate for that domain, the script adds a route to it in `/etc/apache2/conf-available/wow-trading.conf`, and neither installs Caddy nor changes anything else:
+
+```sh
+sudo DOMAIN=example.com BASE_PATH=/wow-trading ./deploy/install.sh
+```
+
+The script remembers `DOMAIN` and `BASE_PATH` for the next runs.
+
+### On an IPv6-only server
+
+Battle.net and GitHub have no IPv6 address. Without an IPv4 address on the server, the fetcher cannot reach Battle.net, and `check.sh` says so: attach one, for example a flexible IP on Scaleway, and also add an `A` record for readers without IPv6.
+
+To install or update such a server, send the code from your computer rather than cloning it:
+
+```sh
+git bundle create - HEAD | ssh root@server 'cat > wow-trading.bundle'
+ssh root@server 'git clone wow-trading.bundle wow-trading'
+```
+
+For an update, replace the second command with `git -C wow-trading pull ../wow-trading.bundle HEAD`.
+
 ## When the fetcher runs
 
 **A systemd timer, every 5 minutes.**
@@ -81,6 +104,8 @@ These figures come from real snapshots of `eu/commodities` and `eu/hyjal`, and a
 | Disk, daily summaries | About 2 MB per day and per market, never purged |
 
 2 GB of memory should be comfortable for the commodities and one or two realms. On 1 GB, it should work with the swap, without guarantee: this has not been measured. Page times have not been measured on a small server either.
+
+On a disk under 16 GB, the script adapts: 1 GB of swap instead of 2, less write-ahead log, 7 days of hourly detail, and it removes the Rust compiler and its output once the fetcher is built. They come back at the next update of the fetcher, which then takes as long as the first build.
 
 If disk runs short, lower `WOW_HOURLY_RETENTION_DAYS` in `/etc/wow-trading/fetcher.env`: 7 halves the hourly detail. The fetcher no longer runs when less than 1 GB is free, so that Postgres and the site keep working, and `check.sh` reports it.
 

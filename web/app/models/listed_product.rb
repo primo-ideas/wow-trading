@@ -10,7 +10,21 @@ class ListedProduct < ApplicationRecord
     LEFT JOIN pets ON pets.species_id = NULLIF(substring(listed.series FROM 5), '')::int
   SQL
 
+  # About a day of snapshots: fewer say little about what is usual.
+  MIN_USUAL_POINTS = 24
+
   def display_name = name.presence || "Item ##{item_id}"
+
+  # What its cheapest listing usually costs. Not for gear in several variants, whose
+  # prices have little to do with each other.
+  def usual_price
+    usual_min_price if variant_count == 1 && usual_min_points >= MIN_USUAL_POINTS && usual_min_price.positive?
+  end
+
+  # Buying the cheapest listing and selling at the usual price.
+  def resale_profit = usual_price && Flip.profit(buy: min_price, sell: usual_price)
+
+  def discount = usual_price && 1 - min_price.fdiv(usual_price)
 
   # Gear is listed once whatever its bonus lists: its page offers the variants.
   def variant_param = series.presence

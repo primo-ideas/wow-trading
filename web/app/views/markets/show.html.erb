@@ -1,22 +1,6 @@
 <% content_for :title, @market.display_name %>
 
-<div class="page-head">
-  <div>
-    <p class="eyebrow"><%= @market.region.upcase %> · <%= @market.commodities? ? "Whole region" : "Connected realm" %></p>
-    <h1 class="market-title" title="<%= @market.display_name %>"><%= @market.display_name %></h1>
-  </div>
-  <%= freshness(@listing.latest_taken_at) %>
-</div>
-
-<% if market_tabs(@market).many? %>
-  <nav class="tabs" aria-label="Markets">
-    <% market_tabs(@market).each do |tab| %>
-      <%= link_to short_market_name(tab), market_path(tab),
-            class: ("is-selected" if tab.id == @market.id),
-            "aria-current": ("page" if tab.id == @market.id) %>
-    <% end %>
-  </nav>
-<% end %>
+<%= render "markets/head", market: @market, taken_at: @listing.latest_taken_at, section: :listing %>
 
 <% if @listing.latest_taken_at.nil? %>
   <div class="empty-state">

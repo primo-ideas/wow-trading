@@ -653,6 +653,95 @@ select:focus {
   color: var(--ink);
 }
 
+.tabs .tab-end {
+  margin-left: auto;
+  color: var(--gold);
+}
+
+.deal-discount {
+  color: var(--up);
+  font-weight: 600;
+}
+
+.watch-group,
+.across-markets {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.watch-group h2 a {
+  text-decoration: none;
+}
+
+.watch-group h2 a:hover {
+  color: var(--gold);
+}
+
+.watch-form {
+  display: inline-block;
+}
+
+.watch-button {
+  padding: 3px 12px;
+  border: 1px solid var(--line-strong);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--ink-2);
+  font: inherit;
+  font-size: 0.8125rem;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.watch-button:hover {
+  border-color: var(--gold);
+  color: var(--gold);
+}
+
+.watch-button.is-watching {
+  border-color: var(--gold);
+  background: var(--gold-wash);
+  color: var(--gold);
+}
+
+.product-head-side {
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 8px;
+}
+
+.csv-link {
+  margin-left: auto;
+  font-size: 0.8125rem;
+}
+
+.header-link {
+  flex: none;
+  margin-left: auto;
+  color: var(--ink-2);
+  font-weight: 500;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.header-link:hover {
+  color: var(--gold);
+}
+
+.header-link small {
+  padding: 0 6px;
+  border-radius: 999px;
+  background: var(--gold-wash);
+  color: var(--gold);
+}
+
+.listing tr.is-current {
+  background: var(--gold-wash);
+}
+
 .breadcrumb {
   color: var(--ink-3);
   font-size: 0.8125rem;
@@ -1117,7 +1206,7 @@ tr:hover .product-link {
   padding: 18px 20px;
 }
 
-.summary-facts > div:nth-child(-n + 2) {
+.summary-facts > div:nth-child(-n + 4) {
   border-bottom: 1px solid var(--line);
 }
 
@@ -1620,6 +1709,18 @@ tr:hover .product-link {
 
   .plot-x > span:nth-child(even) {
     display: none;
+  }
+
+  /* A table too wide for the phone scrolls by itself, not the whole page. */
+  .table-wrap {
+    overflow-x: auto;
+  }
+
+  .product-head-side {
+    flex: 1 1 100%;
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
   }
 
   /* One card at a time and a peek at the next, so that the listing stays within reach. */

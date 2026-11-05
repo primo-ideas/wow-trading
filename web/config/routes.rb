@@ -6,7 +6,10 @@ Rails.application.routes.draw do
 
   get "search" => "search#show"
 
+  resource :watchlist, only: %i[show update]
+
   resources :markets, only: %i[index show] do
+    get :deals, on: :member
     resources :items, only: :show
   end
 end

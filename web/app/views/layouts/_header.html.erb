@@ -40,5 +40,9 @@
       <kbd aria-hidden="true">/</kbd>
       <div id="site-search-results" class="search-results" role="listbox" aria-label="Suggestions" hidden></div>
     <% end %>
+
+    <%= link_to watchlist_path, class: "header-link" do %>
+      ★ Watchlist<% unless watchlist.empty? %> <small><%= watchlist.size %></small><% end %>
+    <% end %>
   <% end %>
 </header>

@@ -1,5 +1,5 @@
 class ApplicationController < ActionController::Base
-  helper_method :tracked_markets, :remembered_market, :remembered_realm_of, :search_markets
+  helper_method :tracked_markets, :remembered_market, :remembered_realm_of, :search_markets, :watchlist
 
   # The fetcher creates the schema on its first run, which may not have happened yet.
   rescue_from ActiveRecord::StatementInvalid do |error|
@@ -29,6 +29,10 @@ class ApplicationController < ActionController::Base
 
     cookies[:market] = { value: market.id, expires: 1.year, same_site: :lax, path: cookie_path }
     @remembered_market = tracked_markets.find { |tracked| tracked.id == market.id }
+  end
+
+  def watchlist
+    @watchlist ||= Watchlist.new(cookies[:watchlist])
   end
 
   # Other sites may share the domain: this one's cookies stay within its path.

@@ -7,6 +7,17 @@ class ItemsController < ApplicationController
     @variant = params[:variant]&.to_s&.delete("\0") || @variants.first&.variant.to_s
     @product = Product.new(@item, @variant)
     @history = ItemHistory.new(@market, @item, variant: @variant, period: params[:period])
+
+    respond_to do |format|
+      format.html do
+        @listed = ListedProduct.find_by(auction_house_id: @market.id, item_id: @item.id, series: @product.series)
+        @across_markets = ProductAcrossMarkets.new(@market, @item.id, @product.series)
+      end
+      format.csv do
+        send_data @history.to_csv, type: "text/csv",
+          filename: "#{@market.display_name.parameterize}-#{@item.id}-#{@history.period}.csv"
+      end
+    end
   end
 
   private

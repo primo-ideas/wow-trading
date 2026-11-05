@@ -68,6 +68,16 @@ class ItemHistory
     SQL
   end
 
+  # Prices in copper and times in UTC, as they are stored. Only numbers, so nothing here
+  # can be mistaken for a formula by a spreadsheet.
+  def to_csv
+    rows = prices.map do |point|
+      [ point.taken_at.utc.iso8601, point.median_price, point.min_price, point.p25_price, point.p75_price,
+        point.quantity, point.auction_count, point.daily ].join(",")
+    end
+    [ "time,median_price,min_price,p25_price,p75_price,quantity,listings,daily", *rows ].join("\n") + "\n"
+  end
+
   # Where the median moved over the period, to tell at a glance if it is cheap now.
   def median_range
     medians = prices.map(&:median_price)
