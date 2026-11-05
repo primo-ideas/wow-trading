@@ -1,0 +1,16 @@
+<% if range && current && range.high > range.low %>
+  <% position = ((current - range.low).fdiv(range.high - range.low) * 100).clamp(0, 100).round(1) %>
+  <% average = ((range.average - range.low).fdiv(range.high - range.low) * 100).clamp(0, 100).round(1) %>
+  <div class="price-range" role="img"
+       aria-label="Sur <%= period %>, le prix médian a varié de <%= money_text(range.low) %> à <%= money_text(range.high) %>, avec une moyenne de <%= money_text(range.average) %>.">
+    <div class="price-range-track" aria-hidden="true">
+      <i class="price-range-average" style="left: <%= average %>%"></i>
+      <i class="price-range-marker" style="left: <%= position %>%"></i>
+    </div>
+    <div class="price-range-labels" aria-hidden="true">
+      <span><small>Plus bas <%= period %></small><%= money(range.low) %></span>
+      <span class="price-range-center"><small>Moyenne</small><%= money(range.average) %></span>
+      <span class="price-range-end"><small>Plus haut</small><%= money(range.high) %></span>
+    </div>
+  </div>
+<% end %>

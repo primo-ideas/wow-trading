@@ -1,29 +1,21 @@
-# The plot area shared by every chart, in SVG user units, and its vertical scale.
+# The vertical scale shared by every chart. Positions are percentages of the plot, so
+# that the page lays a chart out at any width while its text keeps its size.
 class ChartFrame
-  WIDTH = 960
-  HEIGHT = 280
-  LEFT = 76
-  RIGHT = 150
-  TOP = 12
-  BOTTOM = 28
-
-  def plot_left = LEFT
-  def plot_right = WIDTH - RIGHT
-  def plot_top = TOP
-  def plot_bottom = HEIGHT - BOTTOM
-  def plot_width = plot_right - plot_left
-  def plot_height = plot_bottom - plot_top
-
-  def view_box = "0 0 #{WIDTH} #{HEIGHT}"
-
   def y_ticks
     @y_ticks ||= self.class.ticks(*y_range, whole_numbers: whole_numbers?)
   end
 
+  # From the top of the plot.
   def y(value)
     low, high = y_ticks.minmax
-    (plot_bottom - (value - low).fdiv(high - low) * plot_height).round(1)
+    (100 - (value - low).fdiv(high - low) * 100).round(2)
   end
+
+  def y_labels
+    y_ticks.map { |value| { y: y(value), label: @format_axis.call(value) } }
+  end
+
+  def whole_numbers? = false
 
   # Round values covering `low` to `high`, spread over about `count` ticks. Half a
   # sold item makes no sense, hence `whole_numbers` for what is counted.

@@ -67,15 +67,34 @@ pub struct Realm {
     pub slug: String,
 }
 
-/// Only `name` is required: an item missing the rest is still worth displaying.
+/// Every field is optional: an item missing some is still worth displaying.
 #[derive(Debug, Clone, Deserialize)]
 pub struct Item {
     pub id: i32,
-    pub name: String,
+    /// The API answers `null` for an item without a translation in the locale.
+    name: Option<String>,
+    /// Holds the name in English for such an item.
+    preview_item: Option<PreviewItem>,
     pub quality: Option<ItemQuality>,
     pub level: Option<i32>,
     pub item_class: Option<NamedRef>,
     pub item_subclass: Option<NamedRef>,
+    /// Not part of the item's own answer: set from the media endpoint.
+    #[serde(default)]
+    pub icon_url: Option<String>,
+}
+
+impl Item {
+    pub fn name(&self) -> Option<&str> {
+        self.name
+            .as_deref()
+            .or_else(|| self.preview_item.as_ref()?.name.as_deref())
+    }
+}
+
+#[derive(Debug, Clone, Deserialize)]
+struct PreviewItem {
+    name: Option<String>,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -86,7 +105,40 @@ pub struct ItemQuality {
 
 #[derive(Debug, Clone, Deserialize)]
 pub struct NamedRef {
-    pub name: String,
+    /// `null` for some old items, such as the subclass of item 732.
+    pub name: Option<String>,
+}
+
+/// A battle pet species.
+#[derive(Debug, Clone, Deserialize)]
+pub struct Pet {
+    pub id: i32,
+    pub name: Option<String>,
+    /// Not part of the pet's own answer: set from the media endpoint.
+    #[serde(default)]
+    pub icon_url: Option<String>,
+}
+
+/// Body of the media endpoints.
+#[derive(Debug, Deserialize)]
+pub(crate) struct Media {
+    #[serde(default)]
+    assets: Vec<MediaAsset>,
+}
+
+impl Media {
+    pub(crate) fn into_icon_url(self) -> Option<String> {
+        self.assets
+            .into_iter()
+            .find(|asset| asset.key == "icon")
+            .map(|asset| asset.value)
+    }
+}
+
+#[derive(Debug, Deserialize)]
+struct MediaAsset {
+    key: String,
+    value: String,
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -129,8 +181,11 @@ pub trait AuctionApi: Send + Sync {
         if_modified_since: Option<&str>,
     ) -> impl Future<Output = Result<Fetched, ApiError>> + Send;
 
-    /// `None` when the API does not know this item.
+    /// `None` when the API does not know this item. A missing icon is not a failure.
     fn item(&self, id: i32) -> impl Future<Output = Result<Option<Item>, ApiError>> + Send;
+
+    /// `None` when the API does not know this species. A missing icon is not a failure.
+    fn pet(&self, species_id: i32) -> impl Future<Output = Result<Option<Pet>, ApiError>> + Send;
 }
 
 /// Body of the auction endpoints, commodities and connected realms alike.

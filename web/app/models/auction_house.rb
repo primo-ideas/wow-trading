@@ -1,14 +1,6 @@
 class AuctionHouse < ApplicationRecord
   has_many :snapshots
 
-  # Commodity markets are region-wide, so they stay listed whatever the search.
-  scope :matching, ->(query) {
-    next all if query.blank?
-
-    where("connected_realm_id IS NULL OR #{TextSearch.condition("auction_houses.name")}",
-      query: TextSearch.pattern(query))
-  }
-
   scope :with_latest_snapshot, -> {
     joins(<<~SQL.squish)
       LEFT JOIN LATERAL (
@@ -21,6 +13,9 @@ class AuctionHouse < ApplicationRecord
     SQL
       .select("auction_houses.*, latest.latest_taken_at, latest.latest_auction_count")
   }
+
+  # The fetcher knows every realm of a region, but only follows some of them.
+  scope :tracked, -> { with_latest_snapshot.where("latest.latest_taken_at IS NOT NULL") }
 
   scope :listing_order, -> {
     order(:region, Arel.sql("connected_realm_id IS NOT NULL"),

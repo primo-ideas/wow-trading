@@ -1,8 +1,5 @@
-# Case and accent insensitive matching, so that "etoffe" finds "Étoffe".
-#
-# ILIKE cannot do this: the database uses the C locale, where it only folds ASCII,
-# and removing accents properly would take an extension in a schema this app does
-# not own.
+# Case and accent insensitive matching, so that "etoffe" finds "Étoffe": against
+# `search_name`, which `items` and `pets` store without case or accents.
 module TextSearch
   ACCENTS = {
     "a" => "àáâãäåæ",
@@ -14,22 +11,19 @@ module TextSearch
     "u" => "ùúûü",
     "y" => "ýÿ"
   }.freeze
-  # translate() maps these two strings character by character.
+  # translate() maps these two strings character by character. The fetcher's migrations
+  # hold the same two strings, for what the columns store.
   ACCENTED = ACCENTS.values.join.freeze
   PLAIN = ACCENTS.map { |plain, accented| plain * accented.length }.join.freeze
 
   module_function
 
-  # SQL for `column` containing the bind `:query`, given to `pattern`.
-  def condition(column)
-    "#{normalized(column)} LIKE #{normalized(":query")}"
+  # SQL for a stored `column` matching a bind, by default `:query`, given to `pattern`.
+  def condition(column, bind: ":query")
+    %(#{column} LIKE translate(lower(#{bind} COLLATE "und-x-icu"), '#{ACCENTED}', '#{PLAIN}'))
   end
 
-  def pattern(query)
-    "%#{ActiveRecord::Base.sanitize_sql_like(query)}%"
-  end
+  def pattern(query) = "%#{escape(query)}%"
 
-  def normalized(expression)
-    %(translate(lower(#{expression} COLLATE "und-x-icu"), '#{ACCENTED}', '#{PLAIN}'))
-  end
+  def escape(query) = ActiveRecord::Base.sanitize_sql_like(query)
 end

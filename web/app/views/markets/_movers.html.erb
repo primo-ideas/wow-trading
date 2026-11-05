@@ -1,0 +1,15 @@
+<section class="movers" aria-label="Ce qui bouge sur 24 heures">
+  <% if movers.compared? %>
+    <%= render "markets/mover_list", title: "Plus fortes hausses", products: movers.risers, market: market, show: :change,
+          empty: "Aucune hausse notable sur 24 h." %>
+    <%= render "markets/mover_list", title: "Plus fortes baisses", products: movers.fallers, market: market, show: :change,
+          empty: "Aucune baisse notable sur 24 h." %>
+  <% else %>
+    <div class="mover-card mover-note">
+      <h2>Tendances sur 24 heures</h2>
+      <p>Hausses et baisses apparaîtront ici après une journée de relevés. Il faut au moins deux relevés séparés d'environ 24 heures pour comparer les prix.</p>
+    </div>
+  <% end %>
+  <%= render "markets/mover_list", title: "Les plus échangés", products: movers.most_traded, market: market, show: :value,
+        empty: "Les ventes apparaîtront dès le prochain relevé." %>
+</section>

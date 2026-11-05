@@ -1,0 +1,14 @@
+# How often to ask Battle.net whether there is something new. See deploy/README.md.
+#
+# A timer rather than cron: a cycle still running is not started twice, logs go to the
+# journal, and the service can depend on Postgres.
+[Unit]
+Description=wow-market: run a fetch cycle regularly
+
+[Timer]
+OnBootSec=2min
+OnCalendar=*:0/5
+AccuracySec=30s
+
+[Install]
+WantedBy=timers.target

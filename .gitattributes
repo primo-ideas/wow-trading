@@ -1,0 +1,5 @@
+# These run on Linux, even when the repository is checked out on Windows first.
+deploy/* text eol=lf
+web/bin/* text eol=lf
+# The fetcher refuses a migration whose bytes changed since it was applied.
+fetcher/migrations/*.sql text eol=lf

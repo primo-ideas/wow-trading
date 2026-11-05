@@ -44,6 +44,8 @@ pub struct CycleReport {
     pub failed: usize,
     pub items_resolved: usize,
     pub items_failed: usize,
+    pub pets_resolved: usize,
+    pub pets_failed: usize,
 }
 
 enum IngestOutcome {
@@ -90,6 +92,7 @@ impl<A: AuctionApi> Fetcher<A> {
         }
 
         self.resolve_items(&mut report).await?;
+        self.resolve_pets(&mut report).await?;
         self.store
             .roll_up_old_partitions(self.options.hourly_retention_days, Utc::now())
             .await?;
@@ -100,6 +103,8 @@ impl<A: AuctionApi> Fetcher<A> {
             failed = report.failed,
             items_resolved = report.items_resolved,
             items_failed = report.items_failed,
+            pets_resolved = report.pets_resolved,
+            pets_failed = report.pets_failed,
             "cycle finished"
         );
         Ok(report)
@@ -310,7 +315,7 @@ impl<A: AuctionApi> Fetcher<A> {
             match result {
                 Ok(item) => {
                     if item.is_none() {
-                        tracing::warn!(id, "item unknown to the item API");
+                        tracing::info!(id, "item unknown to the item API");
                     }
                     self.store.save_item(id, item.as_ref(), Utc::now()).await?;
                     report.items_resolved += 1;
@@ -318,6 +323,36 @@ impl<A: AuctionApi> Fetcher<A> {
                 Err(error) => {
                     tracing::warn!(id, %error, "cannot look up item, will retry");
                     report.items_failed += 1;
+                }
+            }
+        }
+        Ok(())
+    }
+
+    /// Species are the same in every region, so one client is enough.
+    async fn resolve_pets(&self, report: &mut CycleReport) -> anyhow::Result<()> {
+        let Some(source) = self.sources.first() else {
+            return Ok(());
+        };
+        let ids = self
+            .store
+            .pets_to_resolve(Utc::now() - UNKNOWN_ITEM_RETRY, self.options.item_batch)
+            .await?;
+        let mut lookups = stream::iter(ids)
+            .map(|id| async move { (id, source.api.pet(id).await) })
+            .buffer_unordered(self.options.concurrency);
+        while let Some((id, result)) = lookups.next().await {
+            match result {
+                Ok(pet) => {
+                    if pet.is_none() {
+                        tracing::info!(id, "species unknown to the pet API");
+                    }
+                    self.store.save_pet(id, pet.as_ref(), Utc::now()).await?;
+                    report.pets_resolved += 1;
+                }
+                Err(error) => {
+                    tracing::warn!(id, %error, "cannot look up species, will retry");
+                    report.pets_failed += 1;
                 }
             }
         }

@@ -1,51 +1,60 @@
-<figure class="chart" data-chart="line" data-points="<%= chart.points.to_json %>" data-width="<%= ChartFrame::WIDTH %>">
-  <figcaption>
-    <h2><%= title %></h2>
-    <p class="muted"><%= description %></p>
+<figure class="chart" data-chart="line" data-points="<%= chart.points.to_json %>" data-markers="<%= chart.markers.to_json %>">
+  <figcaption class="chart-head">
+    <div>
+      <h2><%= title %></h2>
+      <p class="muted"><%= description %></p>
+    </div>
+    <% if chart.legend? %>
+      <ul class="legend">
+        <% chart.series.each do |line| %>
+          <li><span class="key key-line <%= line.css_class %>"></span><%= line.name %></li>
+        <% end %>
+        <% if chart.band %>
+          <li><span class="key key-area"></span><%= chart.band.name %></li>
+        <% end %>
+      </ul>
+    <% end %>
   </figcaption>
 
-  <% if chart.legend? %>
-    <ul class="legend">
-      <% chart.series.each do |line| %>
-        <li><span class="key key-line <%= line.css_class %>"></span><%= line.name %></li>
+  <div class="plot plot-<%= height %>" tabindex="0" role="img"
+       aria-label="<%= title %>. <%= description %>. Flèches gauche et droite pour parcourir les valeurs ; toutes sont aussi dans le tableau sous le graphique.">
+    <div class="plot-y" aria-hidden="true">
+      <% chart.y_labels.each do |tick| %>
+        <span style="top: <%= tick[:y] %>%"><%= tick[:label] %></span>
       <% end %>
-      <% if chart.band %>
-        <li><span class="key key-area"></span><%= chart.band.name %></li>
-      <% end %>
-    </ul>
-  <% end %>
-
-  <div class="plot">
-    <svg viewBox="<%= chart.view_box %>" role="img" tabindex="0"
-         aria-label="<%= title %>. <%= description %>. Flèches gauche et droite pour parcourir les valeurs ; toutes sont aussi dans le tableau sous le graphique.">
-      <g class="grid">
-        <% chart.y_labels.each do |tick| %>
-          <line x1="<%= chart.plot_left %>" x2="<%= chart.plot_right %>" y1="<%= tick[:y] %>" y2="<%= tick[:y] %>"></line>
+    </div>
+    <div class="plot-area" data-plot-area>
+      <svg viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
+        <g class="grid">
+          <% chart.y_labels.each do |tick| %>
+            <line x1="0" x2="100" y1="<%= tick[:y] %>" y2="<%= tick[:y] %>"></line>
+          <% end %>
+        </g>
+        <% if chart.band %>
+          <path class="area" d="<%= chart.band_path %>"></path>
         <% end %>
-      </g>
-      <g class="axis-labels">
-        <% chart.y_labels.each do |tick| %>
-          <text x="<%= chart.plot_left - 8 %>" y="<%= tick[:y] + 4 %>" text-anchor="end"><%= tick[:label] %></text>
+        <% chart.series.reverse_each do |line| %>
+          <path class="line <%= line.css_class %>" d="<%= chart.line_path(line.key) %>"></path>
         <% end %>
-        <% chart.x_labels.each do |tick| %>
-          <text x="<%= tick[:x] %>" y="<%= chart.plot_bottom + 20 %>" text-anchor="middle"><%= tick[:label] %></text>
-        <% end %>
-      </g>
-      <% if chart.band %>
-        <path class="area" d="<%= chart.band_path %>"></path>
-      <% end %>
-      <% chart.series.reverse_each do |line| %>
-        <path class="line <%= line.css_class %>" d="<%= chart.line_path(line.key) %>"></path>
-      <% end %>
-      <line class="crosshair" y1="<%= chart.plot_top %>" y2="<%= chart.plot_bottom %>" visibility="hidden"></line>
+      </svg>
       <% chart.end_marks.each do |mark| %>
-        <circle class="end-dot <%= mark[:series].css_class %>" cx="<%= mark[:x] %>" cy="<%= mark[:y] %>" r="5"></circle>
+        <i class="end-dot <%= mark[:series].css_class %>" style="left: <%= mark[:x] %>%; top: <%= mark[:y] %>%" aria-hidden="true"></i>
+      <% end %>
+      <i class="crosshair" hidden></i>
+      <div class="chart-tooltip" hidden></div>
+    </div>
+    <div class="plot-end" aria-hidden="true">
+      <% chart.end_marks.each do |mark| %>
         <% if mark[:label] %>
-          <text class="end-label" x="<%= mark[:x] + 12 %>" y="<%= mark[:y] + 4 %>"><%= mark[:label] %></text>
+          <span style="top: <%= mark[:y] %>%"><%= mark[:label] %></span>
         <% end %>
       <% end %>
-    </svg>
-    <div class="chart-tooltip" hidden></div>
+    </div>
+    <div class="plot-x" aria-hidden="true">
+      <% chart.x_labels.each do |tick| %>
+        <span style="left: <%= tick[:x] %>%"><%= tick[:label] %></span>
+      <% end %>
+    </div>
   </div>
 
   <%= render "charts/table", chart: chart, title: title %>

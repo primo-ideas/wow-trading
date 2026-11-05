@@ -1,37 +1,30 @@
-<h1>Hôtels des ventes</h1>
+<section class="hero">
+  <h1>Le cours de l'hôtel des ventes</h1>
+  <p class="lead">Les prix, les tendances et les ventes estimées, relevés environ une fois par heure sur l'API de Blizzard. Choisissez votre royaume : il sera retenu pour vos prochaines visites.</p>
+</section>
 
-<% if @any_market %>
-  <%= form_with url: root_path, method: :get, class: "search", role: "search" do |form| %>
-    <%= form.label :q, "Chercher un royaume", class: "search-label" %>
-    <%= form.search_field :q, value: @query %>
-    <%= form.submit "Chercher", name: nil %>
-  <% end %>
-
-  <% @markets.group_by(&:region).each do |region, markets| %>
-    <section>
+<% if tracked_markets.empty? %>
+  <div class="empty-state">
+    <h2>Aucun marché pour l'instant</h2>
+    <p>Le fetcher n'a encore rien récupéré. Les marchés apparaîtront ici après son premier cycle.</p>
+  </div>
+<% else %>
+  <% tracked_markets.group_by(&:region).each do |region, markets| %>
+    <section class="market-group">
       <h2><%= region.upcase %></h2>
-      <div class="table-wrap">
-        <table>
-          <thead>
-            <tr>
-              <th scope="col">Marché</th>
-              <th scope="col" class="number">Annonces</th>
-              <th scope="col" class="number">Dernier relevé</th>
-            </tr>
-          </thead>
-          <tbody>
-            <% markets.each do |market| %>
-              <tr>
-                <td><%= link_to market.display_name, market_path(market) %></td>
-                <td class="number"><%= market.latest_auction_count ? number_with_delimiter(market.latest_auction_count) : "—" %></td>
-                <td class="number"><%= market.latest_taken_at ? snapshot_age(market.latest_taken_at) : "jamais" %></td>
-              </tr>
+      <ul class="market-grid">
+        <% markets.each do |market| %>
+          <li>
+            <%= link_to market_path(market), class: "market-card" do %>
+              <span class="market-card-name" title="<%= market.display_name %>"><%= market.display_name %></span>
+              <span class="market-card-meta">
+                <%= number_with_delimiter(market.latest_auction_count) %> annonces
+              </span>
+              <%= freshness(market.latest_taken_at) %>
             <% end %>
-          </tbody>
-        </table>
-      </div>
+          </li>
+        <% end %>
+      </ul>
     </section>
   <% end %>
-<% else %>
-  <p class="empty">Aucun marché pour l'instant : le fetcher n'a encore rien récupéré.</p>
 <% end %>

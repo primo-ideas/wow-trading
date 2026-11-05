@@ -1,70 +1,52 @@
 <% content_for :title, @market.display_name %>
 
-<nav class="breadcrumb" aria-label="Fil d'Ariane">
-  <%= link_to "Hôtels des ventes", root_path %> / <%= @market.region.upcase %>
-</nav>
-<h1><%= @market.display_name %></h1>
+<div class="page-head">
+  <div>
+    <p class="eyebrow"><%= @market.region.upcase %> · <%= @market.commodities? ? "Toute la région" : "Royaume connecté" %></p>
+    <h1 class="market-title" title="<%= @market.display_name %>"><%= @market.display_name %></h1>
+  </div>
+  <%= freshness(@listing.latest_taken_at) %>
+</div>
+
+<% if market_tabs(@market).many? %>
+  <nav class="tabs" aria-label="Marchés">
+    <% market_tabs(@market).each do |tab| %>
+      <%= link_to short_market_name(tab), market_path(tab),
+            class: ("is-selected" if tab.id == @market.id),
+            "aria-current": ("page" if tab.id == @market.id) %>
+    <% end %>
+  </nav>
+<% end %>
 
 <% if @listing.latest_taken_at.nil? %>
-  <p class="empty">Aucun relevé pour ce marché pour l'instant.</p>
+  <div class="empty-state">
+    <h2>Pas encore de relevé</h2>
+    <p>Ce marché n'est pas suivi pour l'instant, ou son premier relevé n'est pas encore arrivé.</p>
+  </div>
 <% else %>
-  <p class="subtitle">Dernier relevé <%= snapshot_age(@listing.latest_taken_at) %></p>
-
-  <%= form_with url: market_path(@market), method: :get, class: "search", role: "search" do |form| %>
-    <%= form.hidden_field :sort, value: @listing.sort if @listing.sort != MarketListing::DEFAULT_SORT %>
-    <%= form.label :q, "Chercher un objet", class: "search-label" %>
-    <%= form.search_field :q, value: @listing.query, placeholder: "Nom ou identifiant" %>
-    <%= form.submit "Chercher", name: nil %>
+  <%# A filter or a sort only replaces the listing below: no need to work these out for it. %>
+  <% unless turbo_frame_request? %>
+    <%= render "markets/movers", movers: @movers, market: @market %>
   <% end %>
 
-  <% if @listing.rows.empty? %>
-    <p class="empty">
-      <%= @listing.query.present? ? "Aucun objet ne correspond à cette recherche." : "Rien n'est en vente à ce relevé." %>
-    </p>
-  <% else %>
-    <div class="table-wrap">
-      <table>
-        <thead>
-          <tr>
-            <th scope="col"><%= sort_link "Objet", "name", @listing %></th>
-            <th scope="col" class="number"><%= sort_link "Médiane", "price", @listing %></th>
-            <th scope="col" class="number">Minimum</th>
-            <th scope="col" class="number">Sur 24 h</th>
-            <th scope="col" class="number"><%= sort_link "En vente", "quantity", @listing %></th>
-            <th scope="col" class="number">Vendus, 24 h</th>
-            <th scope="col" class="number"><%= sort_link "Valeur vendue, 24 h", "value", @listing %></th>
-          </tr>
-        </thead>
-        <tbody>
-          <% @listing.rows.each do |row| %>
-            <tr>
-              <td>
-                <%= link_to listed_name(row), market_item_path(@market, row.item_id, variant: row.variant.presence) %>
-                <% if variant_label(row.variant) %>
-                  <span class="muted"><%= variant_label(row.variant) %></span>
-                <% end %>
-              </td>
-              <td class="number"><%= money(row.median_price) %></td>
-              <td class="number"><%= money(row.min_price) %></td>
-              <td class="number"><%= price_change(row.median_price, row.reference_median_price) %></td>
-              <td class="number"><%= number_with_delimiter(row.quantity) %></td>
-              <td class="number"><%= number_with_delimiter(row.sold_quantity.to_i) %></td>
-              <td class="number"><%= money(row.sold_value.to_i) %></td>
-            </tr>
-          <% end %>
-        </tbody>
-      </table>
+  <%= form_with url: market_path(@market), method: :get, id: "listing-filters", class: "filters-row",
+        role: "search", data: { turbo_frame: "listing", turbo_action: "advance", live_filters: true } do |form| %>
+    <div class="field field-grow">
+      <%= form.label :q, "Objet" %>
+      <%= form.search_field :q, value: @listing.query, id: "listing-q", placeholder: "Nom ou identifiant", autocomplete: "off" %>
     </div>
-
-    <p class="note"><%= render "shared/sales_note" %></p>
-
-    <nav class="pagination" aria-label="Pages">
-      <% if @listing.previous_page? %>
-        <%= link_to "← Précédent", listing_page_path(@market, @listing, @listing.page - 1) %>
-      <% end %>
-      <% if @listing.next_page? %>
-        <%= link_to "Suivant →", listing_page_path(@market, @listing, @listing.page + 1) %>
-      <% end %>
-    </nav>
+    <div class="field">
+      <%= form.label :item_class, "Catégorie" %>
+      <%= form.select :item_class, options_for_select(@item_classes, @listing.item_class), { include_blank: "Toutes" }, id: "listing-item-class" %>
+    </div>
+    <div class="field">
+      <%= form.label :quality, "Qualité" %>
+      <%= form.select :quality, options_for_select(ProductsHelper::QUALITIES.map { |key, label| [ label, key ] }, @listing.quality), { include_blank: "Toutes" }, id: "listing-quality" %>
+    </div>
+    <noscript><%= form.submit "Filtrer", name: nil %></noscript>
   <% end %>
+
+  <turbo-frame id="listing" data-turbo-action="advance">
+    <%= render "markets/listing", listing: @listing, market: @market %>
+  </turbo-frame>
 <% end %>

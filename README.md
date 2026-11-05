@@ -4,6 +4,7 @@ Courbes de prix et ventes estimées de l'hôtel des ventes de World of Warcraft.
 
 - [`fetcher/`](fetcher/) : récupère les enchères sur l'API Battle.net et stocke des statistiques dans Postgres (Rust).
 - [`web/`](web/) : le site, qui lit cette base sans jamais y écrire (Rails).
+- [`deploy/`](deploy/) : l'installation sur un serveur Ubuntu, voir [son guide](deploy/README.md).
 
 ## Essayer sans identifiants
 
@@ -28,6 +29,10 @@ Au premier lancement, le script installe Postgres et Ruby dans `%LOCALAPPDATA%\w
 ```
 
 Sans `-Scope`, le script récupère tous les royaumes de toutes les régions. Sans `-Stub` et sans identifiants, il s'arrête avec un message d'erreur : il ne se rabat jamais sur les données d'exemple.
+
+## Déployer sur un serveur
+
+Sur Ubuntu 26.04, `deploy/install.sh` installe tout, avec le fetcher sur un timer systemd toutes les 5 minutes. Voir [le guide de déploiement](deploy/README.md), qui explique aussi ce choix de fréquence.
 
 ## run.ps1
 
@@ -72,7 +77,7 @@ Chaque option peut se passer en ligne de commande ou par une variable d'environn
 | `--scope` | `WOW_SCOPE` | tout | Ce qu'il faut récupérer |
 | `--locale` | `WOW_LOCALE` | `fr_FR` | Langue des noms d'objets et de royaumes |
 | `--concurrency` | `WOW_CONCURRENCY` | `4` | Requêtes simultanées par région |
-| `--item-batch` | `WOW_ITEM_BATCH` | `5000` | Objets à identifier au maximum par cycle |
+| `--item-batch` | `WOW_ITEM_BATCH` | `1000` | Objets, et espèces de mascottes, à identifier au maximum par cycle |
 | `--hourly-retention-days` | `WOW_HOURLY_RETENTION_DAYS` | `14` | Jours de détail horaire conservés |
 | `--poll-seconds` (`watch`) | `WOW_POLL_SECONDS` | `600` | Attente entre deux cycles |
 | `--config` | | `.env` | Fichier de variables à lire |
@@ -98,9 +103,9 @@ Pour chaque région, le fetcher :
 
 1. découvre les royaumes connectés encore inconnus ;
 2. demande à chaque marché suivi son snapshot avec `If-Modified-Since`, ce qui ne coûte presque rien tant que rien n'a changé ;
-3. réduit chaque nouveau snapshot à une ligne de statistiques par objet, estime les ventes depuis le snapshot précédent, et écrit le tout en une seule transaction.
+3. réduit chaque nouveau snapshot à une ligne de statistiques par objet, estime les ventes depuis le snapshot précédent, calcule ce que le site affichera pour ce marché, et écrit le tout en une seule transaction.
 
-Il récupère ensuite les noms et caractéristiques des objets nouvellement vus, par lots, puis résume en statistiques journalières les jours sortis de la période de rétention.
+Il récupère ensuite les noms, caractéristiques et icônes des objets et des mascottes nouvellement vus, par lots et en commençant par ce qui s'échange le plus, puis résume en statistiques journalières les jours sortis de la période de rétention.
 
 Un marché en échec n'empêche pas les autres et sera retenté au cycle suivant. Des identifiants refusés, un royaume inconnu ou une erreur de base de données arrêtent le programme, car réessayer n'y changerait rien.
 
@@ -117,7 +122,9 @@ Les prix sont en pièces de cuivre (1 po = 10 000) et les dates en UTC.
 | `price_points` | Prix minimum, 1er quartile, médiane, 3e quartile, moyenne, quantité et nombre d'enchères, par objet et par snapshot |
 | `sales_points` | Quantité, valeur et nombre d'enchères vendues, par objet, entre deux snapshots |
 | `price_points_daily`, `sales_points_daily` | Les mêmes données, par jour UTC, une fois sorties de la période de rétention |
-| `items` | Nom, qualité, niveau et classe des objets. `name` à `NULL` : pas encore identifié, ou inconnu de l'API |
+| `listed_products` | Ce qu'un marché a en vente au dernier snapshot : les variantes d'un équipement additionnées, les ventes sur 24 heures et l'évolution sur 24 heures. Remplacé à chaque snapshot, c'est ce que lisent les listes du site |
+| `items` | Nom, qualité, niveau, classe et icône des objets. `name` à `NULL` : pas encore identifié, ou inconnu de l'API |
+| `pets` | Nom et icône des espèces de mascottes |
 
 `price_points` et `sales_points` ont une partition par jour. Au-delà de la rétention, chaque jour est remplacé par une ligne par objet dans les tables `*_daily` : prix et quantités moyens, prix minimum le plus bas, ventes additionnées. Ce résumé est définitif.
 
@@ -148,26 +155,28 @@ Cela reste une estimation. Une enchère annulée ressemble à une vente, ce qui 
 
 ## Site
 
-- `/` : les marchés par région, avec une recherche par royaume.
-- `/markets/:id` : ce qui est en vente au dernier snapshot, avec une recherche par nom ou identifiant, sans tenir compte des accents ni de la casse.
+- `/` : le dernier royaume consulté, ou à défaut la liste des marchés (`/markets`).
+- `/markets/:id` : les plus fortes hausses et baisses sur 24 heures et les plus échangés, puis tout ce qui est en vente au dernier snapshot, à trier et à filtrer par nom, identifiant, catégorie ou qualité, sans tenir compte des accents ni de la casse.
 - `/markets/:id/items/:id` : courbes de prix, ventes estimées et quantité en vente, sur 24 heures, 7, 30 ou 90 jours, ou tout l'historique. Chaque graphique a son tableau de données.
+- `/search` : cherche dans le royaume du joueur et les matières premières de sa région. L'en-tête de chaque page propose des suggestions à la frappe, avec `/` ou Ctrl-K pour s'y rendre.
 
 Le schéma appartient au fetcher : le site n'a pas de migrations, et hors tests Postgres refuse ses écritures (`default_transaction_read_only`). Ses tests chargent les migrations du fetcher, donc un changement de schéma qui casse le site les fait échouer. Ils vident leur base et refusent de tourner sur une base dont le nom ne finit pas par `_test`.
 
 ## Volume
 
-Le volume n'a pas encore été mesuré sur de vraies données ; il faudra le faire au premier lancement, sur un petit périmètre. Ce qui grossit :
+Environ 1 Go par marché pour 14 jours de détail horaire, et 2 Mo par jour et par marché pour les résumés quotidiens. Ces chiffres extrapolent de vrais snapshots d'`eu/commodities` (11 700 séries) et `eu/hyjal` (18 300 séries) à un historique simulé. Ce qui grossit :
 
-- `price_points` et `sales_points`, de quelques lignes par objet et par snapshot, pendant la rétention ;
+- `price_points` et `sales_points`, pendant la rétention ;
 - les tables `*_daily` et `snapshots`, qui ne sont jamais purgées.
 
 Le tout se multiplie par le nombre de marchés suivis, soit tous les royaumes connectés des quatre régions par défaut. `run.ps1` avertit quand il reste moins de 20 Go sur le disque.
 
 ## Limites connues
 
-- Les fixtures ont été écrites à la main : le format réel des réponses ne sera confirmé qu'au premier lancement avec de vrais identifiants.
+- Le format réel des réponses n'a été confirmé que sur `eu/commodities` et `eu/hyjal`, pas sur les autres régions.
+- `deploy/install.sh` n'a pas encore été exécuté sur un vrai serveur Linux.
 - Les enchères individuelles ne sont conservées que jusqu'au snapshot suivant. On ne peut donc pas recalculer l'historique avec d'autres statistiques.
-- Pas de noms de mascottes ni d'icônes d'objets, qui demandent d'autres appels API : le site affiche l'espèce ou la liste de bonus.
+- Les variantes d'un équipement s'affichent par leur liste de bonus, qui ne dit pas grand-chose à un joueur.
 - Les `modifiers` d'objets ne font pas partie de `variant`.
 - Ni la Chine, qui utilise d'autres serveurs, ni WoW Classic.
-- Le site est pensé pour un usage local : pas d'authentification, et `run.ps1` ne l'expose que sur `127.0.0.1`. Les heures sont affichées à l'heure de Paris.
+- Le site n'a pas d'authentification. `run.ps1` ne l'expose que sur `127.0.0.1` ; en ligne, il est public dès qu'un domaine lui est donné. Les heures sont affichées à l'heure de Paris.

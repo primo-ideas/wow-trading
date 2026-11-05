@@ -1,0 +1,44 @@
+<header class="site-header">
+  <%= link_to root_path, class: "brand" do %>
+    <i class="coin coin-g" aria-hidden="true"></i>wow-market
+  <% end %>
+
+  <% if tracked_markets.any? %>
+    <details class="switcher" data-menu>
+      <summary title="Changer de royaume">
+        <span class="switcher-label">
+          <% if remembered_market %>
+            <span class="region"><%= remembered_market.region.upcase %></span>
+            <%= short_market_name(remembered_market) %>
+          <% else %>
+            Choisir un royaume
+          <% end %>
+        </span>
+      </summary>
+      <div class="menu-panel">
+        <% if tracked_markets.size > 6 %>
+          <input type="search" class="menu-filter" placeholder="Filtrer les royaumes" aria-label="Filtrer les royaumes" data-menu-filter>
+        <% end %>
+        <ul class="menu-list">
+          <% tracked_markets.each do |market| %>
+            <li data-menu-item="<%= market.display_name.downcase %>">
+              <%= link_to market_path(market), class: ("is-selected" if market.id == remembered_market&.id) do %>
+                <span class="region"><%= market.region.upcase %></span>
+                <span><%= market.display_name %></span>
+              <% end %>
+            </li>
+          <% end %>
+        </ul>
+      </div>
+    </details>
+
+    <%= form_with url: search_path, method: :get, class: "site-search", role: "search", data: { search: true, turbo: false } do |form| %>
+      <%= form.label :q, "Chercher un objet", class: "visually-hidden", for: "site-search-input" %>
+      <%= form.search_field :q, value: params[:q].to_s.first(100), id: "site-search-input",
+            placeholder: "Chercher un objet ou une mascotte", autocomplete: "off",
+            "aria-controls": "site-search-results", "aria-expanded": "false", role: "combobox" %>
+      <kbd aria-hidden="true">/</kbd>
+      <div id="site-search-results" class="search-results" role="listbox" aria-label="Suggestions" hidden></div>
+    <% end %>
+  <% end %>
+</header>

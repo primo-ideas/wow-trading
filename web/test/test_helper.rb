@@ -39,9 +39,14 @@ module MarketData
     AuctionHouse.find(id)
   end
 
-  def create_item(id, name: "Étoffe de lin", quality: "COMMON", item_class: "Artisanat", item_subclass: "Tissu")
-    Item.insert_all!([ { id: id, name: name, quality: quality, item_class: item_class, item_subclass: item_subclass } ])
+  def create_item(id, name: "Étoffe de lin", quality: "COMMON", item_class: "Artisanat", item_subclass: "Tissu", icon_url: nil)
+    Item.insert_all!([ { id: id, name: name, quality: quality, item_class: item_class, item_subclass: item_subclass, icon_url: icon_url } ])
     Item.find(id)
+  end
+
+  def create_pet(species_id, name: "Ecureuil mécanique", icon_url: "https://render.example/pet.jpg")
+    Pet.insert_all!([ { species_id: species_id, name: name, icon_url: icon_url } ])
+    Pet.find(species_id)
   end
 
   def create_snapshot(market, taken_at, auction_count: 10)
@@ -52,9 +57,10 @@ module MarketData
       auction_count: auction_count,
       unpriced_count: 0
     } ])
+    refresh_listed_products(market)
   end
 
-  def create_price(market, item_id, taken_at, median: 1_000, min: median / 2, quantity: 5, variant: "")
+  def create_price(market, item_id, taken_at, median: 1_000, min: median / 2, quantity: 5, auctions: 1, variant: "")
     PricePoint.insert_all!([ {
       auction_house_id: market.id,
       item_id: item_id,
@@ -65,9 +71,10 @@ module MarketData
       p75_price: median + 10,
       mean_price: median,
       quantity: quantity,
-      auction_count: 1,
+      auction_count: auctions,
       variant: variant
     } ])
+    refresh_listed_products(market)
   end
 
   def create_sale(market, item_id, taken_at, quantity: 2, value: 2_000, variant: "")
@@ -80,6 +87,7 @@ module MarketData
       sold_auctions: 1,
       variant: variant
     } ])
+    refresh_listed_products(market)
   end
 
   def insert_daily_price(market, item_id, day, median:, variant: "")
@@ -94,6 +102,11 @@ module MarketData
   end
 
   private
+
+  # As the fetcher does when it stores a snapshot, with the same function.
+  def refresh_listed_products(market)
+    ActiveRecord::Base.lease_connection.execute("SELECT refresh_listed_products(#{market.id})")
+  end
 
   def insert_daily(table, market, item_id, day, variant, columns, values)
     connection = ActiveRecord::Base.lease_connection

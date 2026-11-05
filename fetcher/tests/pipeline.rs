@@ -119,6 +119,87 @@ async fn first_cycle_stores_commodities_and_selected_realms(pool: PgPool) {
 }
 
 #[sqlx::test]
+async fn a_snapshot_updates_what_the_site_lists(pool: PgPool) {
+    let fetcher = fetcher(pool.clone(), StubApi::with_fixtures(), slugs(&["hyjal"]));
+
+    fetcher.run_cycle().await.unwrap();
+
+    // Gear adds up into one product, whatever its bonus lists, and each caged pet is its own.
+    let listed: Vec<(i32, String, i32)> = sqlx::query_as(
+        "SELECT l.item_id, l.series, l.variant_count FROM listed_products l
+         JOIN auction_houses h ON h.id = l.auction_house_id
+         WHERE h.name = 'Hyjal' ORDER BY l.item_id, l.series",
+    )
+    .fetch_all(&pool)
+    .await
+    .unwrap();
+    let expected: Vec<(i32, String, i32)> = [
+        (2589, "", 1),
+        (82800, "pet:39", 1),
+        (82800, "pet:40", 1),
+        (200000, "", 1),
+        (999999, "", 1),
+    ]
+    .into_iter()
+    .map(|(item, series, variants)| (item, series.to_owned(), variants))
+    .collect();
+    assert_eq!(listed, expected);
+
+    // The next snapshot replaces the list rather than adding to it.
+    api_of(&fetcher).publish(HYJAL, LATER, vec![commodity(2589, 500, 3)]);
+    fetcher.run_cycle().await.unwrap();
+
+    assert_eq!(
+        count(
+            &pool,
+            "SELECT count(*) FROM listed_products l
+             JOIN auction_houses h ON h.id = l.auction_house_id WHERE h.name = 'Hyjal'"
+        )
+        .await,
+        1
+    );
+}
+
+#[sqlx::test]
+async fn what_trades_most_gets_its_name_first(pool: PgPool) {
+    sqlx::query(
+        "INSERT INTO auction_houses (region, connected_realm_id, name)
+         VALUES ('eu', 1, 'Hyjal'), ('eu', 2, 'Archimonde')",
+    )
+    .execute(&pool)
+    .await
+    .unwrap();
+    // Never looked up: 1 to 5. Looked up long ago without an answer: 6.
+    sqlx::query("INSERT INTO items (id) SELECT generate_series(1, 5)")
+        .execute(&pool)
+        .await
+        .unwrap();
+    sqlx::query("INSERT INTO items (id, resolved_at) VALUES (6, '2000-01-01')")
+        .execute(&pool)
+        .await
+        .unwrap();
+    // Item 4 trades most, adding up its two markets. Items 2 and 5 are listed without sales.
+    sqlx::query(
+        "INSERT INTO listed_products
+             (auction_house_id, item_id, series, min_price, quantity, auction_count,
+              variant_count, sold_value)
+         SELECT h.id, listed.item_id, '', 1, 1, 1, 1, listed.sold_value
+         FROM (VALUES ('Hyjal', 3, 50), ('Hyjal', 4, 30), ('Archimonde', 4, 30),
+                      ('Hyjal', 2, NULL), ('Hyjal', 5, NULL))
+              AS listed (market, item_id, sold_value)
+         JOIN auction_houses h ON h.name = listed.market",
+    )
+    .execute(&pool)
+    .await
+    .unwrap();
+    let store = Store::from_pool(pool);
+
+    let order = store.items_to_resolve(Utc::now(), 10).await.unwrap();
+
+    assert_eq!(order, [4, 3, 1, 2, 5, 6]);
+}
+
+#[sqlx::test]
 async fn stored_statistics_resist_an_outlier(pool: PgPool) {
     let fetcher = fetcher(
         pool.clone(),
@@ -606,7 +687,7 @@ async fn an_unknown_item_is_asked_about_again_after_a_while(pool: PgPool) {
         .unwrap();
     let report = fetcher.run_cycle().await.unwrap();
 
-    // 190396 has a name: its age does not matter.
+    // 190396 has a name and an icon: its age does not matter.
     assert_eq!(report.items_resolved, 1);
     assert_eq!(
         count(
@@ -658,6 +739,127 @@ async fn item_lookups_are_capped_per_cycle(pool: PgPool) {
         ],
         [1, 1, 0]
     );
+}
+
+#[sqlx::test]
+async fn stores_the_icon_of_an_item(pool: PgPool) {
+    let fetcher = fetcher(pool.clone(), StubApi::with_fixtures(), slugs(&["hyjal"]));
+
+    fetcher.run_cycle().await.unwrap();
+
+    assert_eq!(
+        count(
+            &pool,
+            "SELECT COUNT(*) FROM items
+             WHERE id = 190396 AND icon_url LIKE 'https://render.worldofwarcraft.com/%'"
+        )
+        .await,
+        1
+    );
+}
+
+#[sqlx::test]
+async fn an_item_missing_its_icon_is_looked_up_again_without_losing_its_name(pool: PgPool) {
+    let fetcher = fetcher(pool.clone(), StubApi::with_fixtures(), slugs(&["hyjal"]));
+    fetcher.run_cycle().await.unwrap();
+
+    sqlx::query("UPDATE items SET icon_url = NULL, resolved_at = '2000-01-01' WHERE id = 190396")
+        .execute(&pool)
+        .await
+        .unwrap();
+    let report = fetcher.run_cycle().await.unwrap();
+
+    assert_eq!(report.items_resolved, 1);
+    assert_eq!(
+        count(
+            &pool,
+            "SELECT COUNT(*) FROM items
+             WHERE id = 190396 AND name = 'Minerai de test' AND icon_url IS NOT NULL"
+        )
+        .await,
+        1
+    );
+}
+
+#[sqlx::test]
+async fn an_item_recently_missing_its_icon_is_left_alone(pool: PgPool) {
+    let fetcher = fetcher(pool.clone(), StubApi::with_fixtures(), slugs(&["hyjal"]));
+    fetcher.run_cycle().await.unwrap();
+
+    sqlx::query("UPDATE items SET icon_url = NULL WHERE id = 190396")
+        .execute(&pool)
+        .await
+        .unwrap();
+    let report = fetcher.run_cycle().await.unwrap();
+
+    assert_eq!(report.items_resolved, 0);
+}
+
+#[sqlx::test]
+async fn an_answer_lacking_a_name_keeps_the_one_already_known(pool: PgPool) {
+    let store = Store::from_pool(pool.clone());
+    sqlx::query("INSERT INTO items (id, name) VALUES (7, 'Connu')")
+        .execute(&pool)
+        .await
+        .unwrap();
+
+    store.save_item(7, None, Utc::now()).await.unwrap();
+
+    assert_eq!(
+        count(&pool, "SELECT COUNT(*) FROM items WHERE id = 7 AND name = 'Connu'").await,
+        1
+    );
+}
+
+#[sqlx::test]
+async fn resolves_the_species_of_caged_pets_and_remembers_unknown_ones(pool: PgPool) {
+    let fetcher = fetcher(pool.clone(), StubApi::with_fixtures(), slugs(&["hyjal"]));
+    sqlx::query("INSERT INTO pets (species_id) VALUES (999999)")
+        .execute(&pool)
+        .await
+        .unwrap();
+
+    let report = fetcher.run_cycle().await.unwrap();
+
+    assert_eq!((report.pets_resolved, report.pets_failed), (3, 0));
+    assert_eq!(
+        count(
+            &pool,
+            "SELECT COUNT(*) FROM pets
+             WHERE species_id = 39 AND name = 'Ecureuil mécanique' AND icon_url IS NOT NULL"
+        )
+        .await,
+        1
+    );
+    assert_eq!(
+        count(
+            &pool,
+            "SELECT COUNT(*) FROM pets
+             WHERE species_id = 999999 AND name IS NULL AND resolved_at IS NOT NULL"
+        )
+        .await,
+        1
+    );
+
+    let report = fetcher.run_cycle().await.unwrap();
+
+    assert_eq!(report.pets_resolved, 0);
+}
+
+#[sqlx::test]
+async fn a_species_lookup_failure_is_retried_next_cycle(pool: PgPool) {
+    let api = StubApi::with_fixtures();
+    api.set_pet_failing(39, true);
+    let fetcher = fetcher(pool, api, slugs(&["hyjal"]));
+
+    let report = fetcher.run_cycle().await.unwrap();
+
+    assert_eq!((report.pets_resolved, report.pets_failed), (1, 1));
+
+    api_of(&fetcher).set_pet_failing(39, false);
+    let report = fetcher.run_cycle().await.unwrap();
+
+    assert_eq!((report.pets_resolved, report.pets_failed), (1, 0));
 }
 
 async fn commodity_house_id(store: &Store) -> i32 {

@@ -1,0 +1,24 @@
+<div class="mover-card">
+  <h2><%= title %></h2>
+  <% if products.empty? %>
+    <p class="muted"><%= empty %></p>
+  <% else %>
+    <ol class="mover-list">
+      <% products.each do |product| %>
+        <li>
+          <%= link_to market_item_path(market, product.item_id, variant: product.variant_param), class: "mover" do %>
+            <%= product_icon(product.icon_url, product.quality) %>
+            <span class="mover-name <%= quality_class(product.quality) %>"><%= product.display_name %></span>
+            <span class="mover-figure">
+              <% if show == :change %>
+                <%= change_pill(product.change) %>
+              <% else %>
+                <%= money(product.sold_value) %>
+              <% end %>
+            </span>
+          <% end %>
+        </li>
+      <% end %>
+    </ol>
+  <% end %>
+</div>

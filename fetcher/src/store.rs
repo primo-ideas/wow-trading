@@ -11,7 +11,7 @@ use sqlx::{AssertSqlSafe, PgPool, Postgres};
 use tokio::sync::Mutex;
 
 use crate::aggregate::{Aggregate, PricePoint};
-use crate::api::{AuctionSource, ConnectedRealm, Item};
+use crate::api::{AuctionSource, ConnectedRealm, Item, Pet};
 use crate::config::Region;
 use crate::sales::{LiveAuction, SalesPoint, decode_state};
 
@@ -25,6 +25,9 @@ const PARTITION_DATE_FORMAT: &str = "%Y%m%d";
 
 /// Serializes partition changes across processes. An arbitrary constant.
 const PARTITION_LOCK_ID: i64 = 7_274_301;
+
+/// See `variant` in the aggregates.
+const PET_VARIANT_PREFIX: &str = "pet:";
 
 #[derive(Debug, Clone, PartialEq, Eq, sqlx::FromRow)]
 pub struct AuctionHouse {
@@ -270,6 +273,10 @@ impl Store {
             .bind(snapshot.state)
             .execute(&mut *tx)
             .await?;
+            sqlx::query("SELECT refresh_listed_products($1)")
+                .bind(snapshot.auction_house_id)
+                .execute(&mut *tx)
+                .await?;
         }
 
         sqlx::query("UPDATE auction_houses SET last_modified = $1 WHERE id = $2")
@@ -323,6 +330,20 @@ impl Store {
              ON CONFLICT (id) DO NOTHING",
         )
         .bind(ids)
+        .execute(&self.pool)
+        .await?;
+
+        let mut species: Vec<i32> = points
+            .iter()
+            .filter_map(|point| point.variant.strip_prefix(PET_VARIANT_PREFIX)?.parse().ok())
+            .collect();
+        species.sort_unstable();
+        species.dedup();
+        sqlx::query(
+            "INSERT INTO pets (species_id) SELECT id FROM UNNEST($1::int[]) AS t(id)
+             ON CONFLICT (species_id) DO NOTHING",
+        )
+        .bind(species)
         .execute(&self.pool)
         .await?;
         Ok(())
@@ -418,16 +439,25 @@ impl Store {
         Ok(())
     }
 
-    /// Items never looked up, plus those the API did not know as of `unknown_before`.
+    /// Items never looked up, plus those whose name or icon was still missing as of
+    /// `unknown_before`. Those a reader sees first come first, in the order of the site's
+    /// default listing: a first install has tens of thousands to go through, over hours.
     pub async fn items_to_resolve(
         &self,
         unknown_before: DateTime<Utc>,
         limit: usize,
     ) -> anyhow::Result<Vec<i32>> {
         let ids = sqlx::query_scalar(
-            "SELECT id FROM items
-             WHERE name IS NULL AND (resolved_at IS NULL OR resolved_at < $1)
-             ORDER BY id LIMIT $2",
+            "SELECT items.id FROM items
+             LEFT JOIN (
+                 SELECT item_id, sum(sold_value) AS sold_value
+                 FROM listed_products
+                 GROUP BY item_id
+             ) listed ON listed.item_id = items.id
+             WHERE (items.name IS NULL OR items.icon_url IS NULL)
+               AND (items.resolved_at IS NULL OR items.resolved_at < $1)
+             ORDER BY items.resolved_at NULLS FIRST, listed.sold_value DESC NULLS LAST, items.id
+             LIMIT $2",
         )
         .bind(unknown_before)
         .bind(limit as i64)
@@ -437,7 +467,8 @@ impl Store {
     }
 
     /// `item` is `None` when the API does not know this id: recording the answer
-    /// keeps it from being asked again at every cycle.
+    /// keeps it from being asked again at every cycle. What was already known
+    /// survives an answer that lacks it.
     pub async fn save_item(
         &self,
         id: i32,
@@ -446,11 +477,13 @@ impl Store {
     ) -> anyhow::Result<()> {
         sqlx::query(
             "UPDATE items
-             SET name = $1, quality = $2, level = $3, item_class = $4, item_subclass = $5,
-                 resolved_at = $6
+             SET name = COALESCE($1, name), quality = COALESCE($2, quality),
+                 level = COALESCE($3, level), item_class = COALESCE($4, item_class),
+                 item_subclass = COALESCE($5, item_subclass),
+                 icon_url = COALESCE($8, icon_url), resolved_at = $6
              WHERE id = $7",
         )
-        .bind(item.map(|item| item.name.as_str()))
+        .bind(item.and_then(Item::name))
         .bind(
             item.and_then(|item| item.quality.as_ref())
                 .map(|quality| quality.kind.as_str()),
@@ -458,14 +491,56 @@ impl Store {
         .bind(item.and_then(|item| item.level))
         .bind(
             item.and_then(|item| item.item_class.as_ref())
-                .map(|class| class.name.as_str()),
+                .and_then(|class| class.name.as_deref()),
         )
         .bind(
             item.and_then(|item| item.item_subclass.as_ref())
-                .map(|class| class.name.as_str()),
+                .and_then(|class| class.name.as_deref()),
         )
         .bind(resolved_at)
         .bind(id)
+        .bind(item.and_then(|item| item.icon_url.as_deref()))
+        .execute(&self.pool)
+        .await?;
+        Ok(())
+    }
+
+    /// Species never looked up, plus those whose name or icon was still missing as
+    /// of `unknown_before`.
+    pub async fn pets_to_resolve(
+        &self,
+        unknown_before: DateTime<Utc>,
+        limit: usize,
+    ) -> anyhow::Result<Vec<i32>> {
+        let ids = sqlx::query_scalar(
+            "SELECT species_id FROM pets
+             WHERE (name IS NULL OR icon_url IS NULL)
+               AND (resolved_at IS NULL OR resolved_at < $1)
+             ORDER BY species_id LIMIT $2",
+        )
+        .bind(unknown_before)
+        .bind(limit as i64)
+        .fetch_all(&self.pool)
+        .await?;
+        Ok(ids)
+    }
+
+    /// `pet` is `None` when the API does not know this species.
+    pub async fn save_pet(
+        &self,
+        species_id: i32,
+        pet: Option<&Pet>,
+        resolved_at: DateTime<Utc>,
+    ) -> anyhow::Result<()> {
+        sqlx::query(
+            "UPDATE pets
+             SET name = COALESCE($1, name), icon_url = COALESCE($2, icon_url), resolved_at = $3
+             WHERE species_id = $4",
+        )
+        .bind(pet.and_then(|pet| pet.name.as_deref()))
+        .bind(pet.and_then(|pet| pet.icon_url.as_deref()))
+        .bind(resolved_at)
+        .bind(species_id)
         .execute(&self.pool)
         .await?;
         Ok(())

@@ -18,9 +18,14 @@ class ItemHistory
   # Before any data, for periods without a start.
   EARLIEST = Time.utc(2000)
 
+  # How far from exactly a day or a week ago a snapshot can be and still give a change.
+  REFERENCE_TOLERANCE = 12.hours
+
   SalesBucket = Data.define(:starts_at, :hourly, :sold_quantity, :sold_value, :sold_auctions) do
     def hourly? = hourly
   end
+
+  Range = Data.define(:low, :high, :average)
 
   attr_reader :period, :variant
 
@@ -48,18 +53,27 @@ class ItemHistory
     return [] unless latest_taken_at
 
     @prices ||= PricePoint.find_by_sql([ <<~SQL, binds ])
-      SELECT taken_at, false AS daily, min_price, p25_price, median_price, p75_price, quantity
+      SELECT taken_at, false AS daily, min_price, p25_price, median_price, p75_price, quantity,
+             auction_count
       FROM price_points
       WHERE auction_house_id = :house AND item_id = :item AND variant = :variant
         AND taken_at >= :from
       UNION ALL
       SELECT (day + time '12:00') AT TIME ZONE 'UTC', true, min_price, p25_price, median_price,
-             p75_price, quantity
+             p75_price, quantity, auction_count
       FROM price_points_daily
       WHERE auction_house_id = :house AND item_id = :item AND variant = :variant
         AND day >= (:from)::date
       ORDER BY 1
     SQL
+  end
+
+  # Where the median moved over the period, to tell at a glance if it is cheap now.
+  def median_range
+    medians = prices.map(&:median_price)
+    return if medians.empty?
+
+    Range.new(low: medians.min, high: medians.max, average: medians.sum.fdiv(medians.size).round)
   end
 
   # Every bucket of the period, including the ones without a sale.
@@ -90,32 +104,52 @@ class ItemHistory
     @current = points.find_by(taken_at: latest_taken_at)
   end
 
-  # The point from a day before the latest snapshot, give or take.
+  # The point from about a day before the latest snapshot.
   def reference
-    return unless latest_taken_at
-
     return @reference if defined?(@reference)
 
-    day_ago = latest_taken_at - 1.day
-    @reference = points
-      .where(taken_at: (day_ago - MarketListing::REFERENCE_TOLERANCE)..day_ago)
-      .order(taken_at: :desc)
-      .first
+    @reference = point_about(1.day)
+  end
+
+  # The point from about a week before the latest snapshot.
+  def week_reference
+    return @week_reference if defined?(@week_reference)
+
+    @week_reference = point_about(7.days)
   end
 
   def sold_last_day
     return 0 unless latest_taken_at
 
-    @sold_last_day ||= SalesPoint
-      .where(auction_house_id: @market.id, item_id: @item.id, variant: variant)
-      .where("taken_at > ?", latest_taken_at - 1.day)
-      .sum(:sold_quantity)
+    @sold_last_day ||= sales_last_day.sum(:sold_quantity)
+  end
+
+  def sold_value_last_day
+    return 0 unless latest_taken_at
+
+    @sold_value_last_day ||= sales_last_day.sum(:sold_value)
   end
 
   private
 
   def points
     PricePoint.where(auction_house_id: @market.id, item_id: @item.id, variant: variant)
+  end
+
+  def point_about(ago)
+    return unless latest_taken_at
+
+    target = latest_taken_at - ago
+    points
+      .where(taken_at: (target - REFERENCE_TOLERANCE)..target)
+      .order(taken_at: :desc)
+      .first
+  end
+
+  def sales_last_day
+    SalesPoint
+      .where(auction_house_id: @market.id, item_id: @item.id, variant: variant)
+      .where("taken_at > ?", latest_taken_at - 1.day)
   end
 
   def hourly_sales? = period == HOURLY_SALES_PERIOD

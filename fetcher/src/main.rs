@@ -1,3 +1,4 @@
+use std::io::IsTerminal;
 use std::path::PathBuf;
 use std::process::ExitCode;
 use std::time::Duration;
@@ -57,8 +58,10 @@ struct Cli {
     )]
     concurrency: u16,
 
-    /// Most items to look up per cycle
-    #[arg(long, global = true, env = "WOW_ITEM_BATCH", default_value_t = 5000)]
+    /// Most items, and most pet species, to look up per cycle. Each takes two requests
+    /// out of the 36 000 per hour Battle.net allows: at a cycle every 5 minutes, this
+    /// default spends two thirds of them, until everything on sale is known
+    #[arg(long, global = true, env = "WOW_ITEM_BATCH", default_value_t = 1000)]
     item_batch: usize,
 
     /// Days of hourly detail to keep before rolling them up into daily statistics
@@ -114,7 +117,11 @@ async fn run() -> anyhow::Result<ExitCode> {
     let default_filter = if cli.stub { "warn" } else { "info,sqlx=warn" };
     let filter =
         EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new(default_filter));
-    tracing_subscriber::fmt().with_env_filter(filter).init();
+    // Color codes would end up as garbage in journald or a log file.
+    tracing_subscriber::fmt()
+        .with_env_filter(filter)
+        .with_ansi(std::io::stdout().is_terminal())
+        .init();
 
     let url = std::env::var("DATABASE_URL")
         .context("DATABASE_URL must be set, for example by run.ps1 or in a .env file")?;

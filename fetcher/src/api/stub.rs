@@ -8,7 +8,7 @@ use serde::de::DeserializeOwned;
 
 use super::{
     ApiError, Auction, AuctionApi, AuctionSource, AuctionsEnvelope, ConnectedRealm, Fetched, Item,
-    Snapshot, parse_http_date,
+    Pet, Snapshot, parse_http_date,
 };
 
 /// `Last-Modified` of the snapshots served by [`StubApi::with_fixtures`].
@@ -18,6 +18,7 @@ const CONNECTED_REALMS: &str = include_str!("../../fixtures/connected_realms.jso
 const COMMODITIES: &str = include_str!("../../fixtures/commodities.json");
 const REALM_AUCTIONS: &str = include_str!("../../fixtures/connected_realm_auctions.json");
 const ITEMS: &str = include_str!("../../fixtures/items.json");
+const PETS: &str = include_str!("../../fixtures/pets.json");
 
 #[derive(Default)]
 pub struct StubApi {
@@ -29,8 +30,10 @@ struct StubState {
     realms: BTreeMap<i32, ConnectedRealm>,
     snapshots: HashMap<AuctionSource, Snapshot>,
     items: HashMap<i32, Item>,
+    pets: HashMap<i32, Pet>,
     failing_sources: HashSet<AuctionSource>,
     failing_items: HashSet<i32>,
+    failing_pets: HashSet<i32>,
     failing_realm_lookups: bool,
     credentials_rejected: bool,
     snapshots_served: usize,
@@ -60,8 +63,13 @@ impl StubApi {
             stub.state().realms.insert(realm.id, realm);
         }
 
-        for item in parse_fixture::<Vec<Item>>(ITEMS) {
+        for mut item in parse_fixture::<Vec<Item>>(ITEMS) {
+            item.icon_url = Some(stub_icon_url(item.id));
             stub.state().items.insert(item.id, item);
+        }
+        for mut pet in parse_fixture::<Vec<Pet>>(PETS) {
+            pet.icon_url = Some(stub_icon_url(pet.id));
+            stub.state().pets.insert(pet.id, pet);
         }
         stub
     }
@@ -98,6 +106,15 @@ impl StubApi {
             state.failing_items.insert(id);
         } else {
             state.failing_items.remove(&id);
+        }
+    }
+
+    pub fn set_pet_failing(&self, species_id: i32, failing: bool) {
+        let mut state = self.state();
+        if failing {
+            state.failing_pets.insert(species_id);
+        } else {
+            state.failing_pets.remove(&species_id);
         }
     }
 
@@ -178,6 +195,22 @@ impl AuctionApi for StubApi {
         }
         Ok(state.items.get(&id).cloned())
     }
+
+    async fn pet(&self, species_id: i32) -> Result<Option<Pet>, ApiError> {
+        let state = self.state();
+        if state.failing_pets.contains(&species_id) {
+            return Err(ApiError::Stub(format!("pet {species_id} is set to fail")));
+        }
+        Ok(state.pets.get(&species_id).cloned())
+    }
+}
+
+/// Without credentials the site still needs images, and can only get them from the
+/// real image server. These icons exist there, whichever item they end up on.
+fn stub_icon_url(id: i32) -> String {
+    const ICONS: [u32; 4] = [4615906, 656559, 136235, 132320];
+    let icon = ICONS[id.unsigned_abs() as usize % ICONS.len()];
+    format!("https://render.worldofwarcraft.com/eu/icons/56/{icon}.jpg")
 }
 
 fn parse_fixture<T: DeserializeOwned>(json: &str) -> T {

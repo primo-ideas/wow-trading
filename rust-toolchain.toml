@@ -1,0 +1,3 @@
+# sqlx needs a newer Rust than Ubuntu 26.04 packages, so rustup installs this one.
+[toolchain]
+channel = "1.99.0"

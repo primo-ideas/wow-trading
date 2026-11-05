@@ -1,0 +1,19 @@
+<% if !search.searchable? %>
+  <p class="search-hint">Tapez au moins <%= ItemSearch::MIN_LENGTH %> lettres.</p>
+<% elsif search.results.empty? %>
+  <p class="search-hint">Rien en vente ne correspond à « <%= search.query %> ».</p>
+<% else %>
+  <ul class="result-list">
+    <% search.results.each do |result| %>
+      <% market = search.market_of(result) %>
+      <li>
+        <%= link_to market_item_path(market, result.item_id, variant: result.variant_param), class: "result", role: "option" do %>
+          <%= product_icon(result.icon_url, result.quality) %>
+          <span class="result-name <%= quality_class(result.quality) %>"><%= result.display_name %></span>
+          <span class="result-market"><%= short_market_name(market) %></span>
+          <span class="result-price"><% if result.several_variants? %><small>dès</small> <% end %><%= money(result.min_price) %></span>
+        <% end %>
+      </li>
+    <% end %>
+  </ul>
+<% end %>

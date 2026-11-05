@@ -3,7 +3,7 @@ require "test_helper"
 class ChartsTest < ActiveSupport::TestCase
   T0 = Time.utc(2026, 11, 5).in_time_zone
 
-  def line_chart(rows)
+  def line_chart(rows, **options)
     LineChart.new(
       rows: rows,
       series: [
@@ -12,7 +12,9 @@ class ChartsTest < ActiveSupport::TestCase
       ],
       band: LineChart::Band.new(low_key: :low, high_key: :high, name: "Bande"),
       format_value: ->(value) { "v#{value}" },
-      format_axis: ->(value) { "t#{value}" }
+      format_axis: ->(value) { "t#{value}" },
+      format_parts: ->(value) { [ [ "p#{value}", nil ] ] },
+      **options
     )
   end
 
@@ -23,7 +25,13 @@ class ChartsTest < ActiveSupport::TestCase
   def column_chart(values)
     ColumnChart.new(
       rows: values.map.with_index { |value, index|
-        { value: value, title: "b#{index}", tick: "t#{index}", details: [ [ "Quantité", value.to_s ] ] }
+        {
+          value: value,
+          time: T0 + index.hours,
+          title: "b#{index}",
+          tick: "t#{index}",
+          details: [ [ "Quantité", [ [ value.to_s, nil ] ], value.to_s ] ]
+        }
       },
       format_axis: ->(value) { value.to_s }
     )
@@ -42,29 +50,33 @@ class ChartsTest < ActiveSupport::TestCase
     assert_operator ChartFrame.ticks(0, 0).uniq.size, :>, 1
   end
 
+  test "what is counted has no fractional tick" do
+    assert ChartFrame.ticks(0, 2, whole_numbers: true).all? { |tick| tick == tick.round }
+    assert_includes ChartFrame.ticks(0, 2), 0.5
+    assert column_chart([ 1, 2 ]).y_ticks.all? { |tick| tick == tick.round }
+    assert line_chart([ row(T0, a: 1, b: 2, low: 1, high: 2) ], whole_numbers: true).y_ticks.all? { |tick| tick == tick.round }
+  end
+
   test "lines span the plot from the first to the last row" do
     chart = line_chart([ row(T0), row(T0 + 1.hour), row(T0 + 2.hours) ])
 
-    assert_equal chart.plot_left, chart.x(T0)
-    assert_equal chart.plot_right, chart.x(T0 + 2.hours)
-    assert_equal chart.plot_left + chart.plot_width / 2.0, chart.x(T0 + 1.hour)
+    assert_equal 0.0, chart.x(T0)
+    assert_equal 50.0, chart.x(T0 + 1.hour)
+    assert_equal 100.0, chart.x(T0 + 2.hours)
   end
 
   test "greater values are higher up, inside the plot" do
     chart = line_chart([ row(T0, a: 100, b: 50), row(T0 + 1.hour, a: 200, b: 60) ])
 
     assert_operator chart.y(200), :<, chart.y(100)
-    chart.y_ticks.each do |tick|
-      assert_operator chart.y(tick), :>=, chart.plot_top
-      assert_operator chart.y(tick), :<=, chart.plot_bottom
-    end
+    chart.y_ticks.each { |tick| assert_includes 0.0..100.0, chart.y(tick) }
   end
 
   test "a single point is drawn in the middle" do
     chart = line_chart([ row(T0) ])
 
-    assert_equal chart.plot_left + chart.plot_width / 2.0, chart.x(T0)
-    assert_match(/\AM[\d.]+ [\d.]+\z/, chart.line_path(:a))
+    assert_equal 50.0, chart.x(T0)
+    assert_match(/\AM50\.0 [\d.]+h0\z/, chart.line_path(:a))
   end
 
   test "end labels that would overlap keep only the first" do
@@ -75,12 +87,32 @@ class ChartsTest < ActiveSupport::TestCase
     assert_equal [ "v1000", "v10" ], apart.map { |mark| mark[:label] }
   end
 
+  test "a band far above the lines does not flatten them, and stays within the plot" do
+    chart = line_chart([ row(T0, a: 100, b: 50, low: 90, high: 10_000), row(T0 + 1.hour, a: 110, b: 60, low: 90, high: 10_000) ])
+
+    assert_operator chart.y_ticks.max, :<=, 200
+    coordinates = chart.band_path.delete("MZ").split("L").map { |pair| pair.split.last.to_f }
+    assert coordinates.all? { |y| y.between?(0, 100) }, chart.band_path
+  end
+
+  test "the scale still makes room for a band close to the lines" do
+    chart = line_chart([ row(T0, a: 100, b: 50, low: 40, high: 130) ])
+
+    assert_operator chart.y_ticks.max, :>=, 130
+    assert_operator chart.y_ticks.min, :<=, 40
+  end
+
   test "the tooltip and the table give every series and the band" do
     chart = line_chart([ row(T0), row(T0 + 1.hour, a: 200) ])
 
     assert_equal [ "A", "B", "Bande" ], chart.table_columns
     assert_equal [ "v200", "v50", "v90 – v110" ], chart.table_rows.first.drop(1)
-    assert_equal [ "v100", "v50", "v90 – v110" ], chart.points.first[:rows].map { |tooltip| tooltip[:value] }
+
+    point = chart.points.first
+    assert_equal [ [ [ "p100", nil ] ], [ [ "p50", nil ] ], [ [ "p90", nil ], [ "–", nil ], [ "p110", nil ] ] ],
+      point[:rows].map { |tooltip| tooltip[:parts] }
+    assert_equal T0.to_i, point[:t]
+    assert_equal 2, point[:y].size
   end
 
   test "the table lists the newest row first" do
@@ -89,46 +121,26 @@ class ChartsTest < ActiveSupport::TestCase
     assert_equal((T0 + 1.hour).to_s, chart.table_rows.first.first)
   end
 
-  test "columns stand on zero and skip empty buckets" do
-    chart = column_chart([ 4, 0, 10 ])
+  test "columns stand on zero, and a bucket without a sale draws nothing" do
+    chart = column_chart([ 5, 0, 10 ])
 
     assert_equal 0, chart.y_ticks.min
-    assert_equal [ 0, 2 ], chart.columns.map { |column| column[:index] }
-    chart.columns.each { |column| assert_includes column[:path], "M" }
+    assert_equal [ 50.0, nil, 100.0 ], chart.slots.map { |slot| slot[:height] }
     assert_equal 3, chart.points.size
-  end
-
-  test "columns never exceed the maximum thickness" do
-    chart = column_chart([ 5 ])
-    path = chart.columns.first[:path]
-    left = path[/\AM([\d.]+)/, 1].to_f
-    right = path[/Q([\d.]+) [\d.]+ [\d.]+ [\d.]+V[\d.]+Z\z/, 1].to_f
-
-    assert_in_delta ColumnChart::MAX_THICKNESS, right - left, 0.2
-  end
-
-  test "a very small column stays visible" do
-    chart = column_chart([ 1, 1_000_000 ])
-    path = chart.columns.first[:path]
-    base = path[/\AM[\d.]+ ([\d.]+)/, 1].to_f
-    top = path[/Q[\d.]+ ([\d.]+) /, 1].to_f
-
-    assert_no_match(/NaN|Infinity/, path)
-    assert_operator base - top, :>=, ColumnChart::MIN_HEIGHT
-  end
-
-  test "what is counted has no fractional tick" do
-    assert column_chart([ 1, 2 ]).y_ticks.all? { |tick| tick == tick.round }
-
-    assert ChartFrame.ticks(0, 2, whole_numbers: true).all? { |tick| tick == tick.round }
-    assert_includes ChartFrame.ticks(0, 2), 0.5
+    assert_equal [ 16.67, 50.0, 83.33 ], chart.points.map { |point| point[:x] }
   end
 
   test "all zero columns still have an axis" do
     chart = column_chart([ 0, 0 ])
 
-    assert_empty chart.columns
+    assert chart.slots.all? { |slot| slot[:height].nil? }
     assert_equal [ 0.0, 1.0 ], chart.y_ticks.minmax
+  end
+
+  test "a long series keeps a readable number of axis labels" do
+    chart = column_chart(Array.new(100, 1))
+
+    assert_operator chart.x_labels.size, :<=, ColumnChart::MAX_X_LABELS + 1
   end
 
   test "the time axis stays within the period and is not crowded" do
@@ -147,6 +159,26 @@ class ChartsTest < ActiveSupport::TestCase
         assert_operator tick[:time], :>=, first
         assert_operator tick[:time], :<=, first + span
         assert_match format, tick[:label]
+      end
+    end
+  end
+
+  test "a sparkline needs two points, and tells which way it went" do
+    assert_not Sparkline.new([]).drawable?
+    assert_not Sparkline.new([ 1.0 ]).drawable?
+    assert Sparkline.new([ 1.0, 2.0 ]).drawable?
+    assert_equal "up", Sparkline.new([ 1.0, 2.0 ]).direction
+    assert_equal "down", Sparkline.new([ 2.0, 1.0 ]).direction
+    assert_equal "flat", Sparkline.new([ 2.0, 1.0, 2.0 ]).direction
+  end
+
+  test "a sparkline stays in its box, even when flat" do
+    [ [ 5.0, 5.0, 5.0 ], [ 1.0, 900.0, 3.0 ] ].each do |values|
+      coordinates = Sparkline.new(values).line_path.delete("M").split("L").map { |pair| pair.split.map(&:to_f) }
+
+      coordinates.each do |x, y|
+        assert_includes 0.0..Sparkline::WIDTH, x
+        assert_includes 0.0..Sparkline::HEIGHT, y
       end
     end
   end

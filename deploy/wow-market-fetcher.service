@@ -1,0 +1,39 @@
+# One fetch cycle, started by wow-market-fetcher.timer. See deploy/README.md.
+[Unit]
+Description=wow-market: fetch auction house data from Battle.net
+After=network-online.target postgresql.service
+Wants=network-online.target
+Requires=postgresql.service
+
+[Service]
+Type=oneshot
+User=wowmarket
+Group=wowmarket
+EnvironmentFile=/etc/wow-market/fetcher.env
+# Postgres stops working when its disk is full, and takes the site down with it: stop
+# adding data first. The unit then shows as failed, and tries again at the next tick.
+ExecStartPre=/bin/sh -c 'test "$$(df --output=avail -k /var/lib/postgresql | tail -n 1)" -gt 1048576 || { echo "Less than 1 GB left on the disk of the database, not fetching."; exit 1; }'
+ExecStart=/opt/wow-market/bin/wow-market-fetcher once
+# 2: some markets failed, and the next cycle retries them. Not worth a failed unit.
+SuccessExitStatus=2
+# A cycle stuck on something must not block the following ones forever.
+TimeoutStartSec=45min
+
+# Leave room for the site, which readers are waiting on.
+Nice=10
+IOSchedulingClass=best-effort
+IOSchedulingPriority=6
+
+# It only needs the network and its database.
+NoNewPrivileges=true
+PrivateTmp=true
+PrivateDevices=true
+ProtectSystem=strict
+ProtectHome=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+RestrictNamespaces=true
+LockPersonality=true
+RestrictRealtime=true

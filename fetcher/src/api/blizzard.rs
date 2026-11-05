@@ -12,8 +12,8 @@ use tokio::sync::Mutex;
 use tokio::time::Instant;
 
 use super::{
-    ApiError, AuctionApi, AuctionSource, AuctionsEnvelope, ConnectedRealm, Fetched, Item, Snapshot,
-    parse_http_date,
+    ApiError, AuctionApi, AuctionSource, AuctionsEnvelope, ConnectedRealm, Fetched, Item, Media,
+    Pet, Snapshot, parse_http_date,
 };
 use crate::config::Region;
 
@@ -24,6 +24,10 @@ const CONNECT_TIMEOUT: Duration = Duration::from_secs(10);
 /// Generous because a commodity snapshot is a very large document.
 const REQUEST_TIMEOUT: Duration = Duration::from_secs(300);
 const ERROR_BODY_MAX_CHARS: usize = 300;
+/// Battle.net allows 100 requests per second for a client id, across all regions.
+/// With four regions at this pace, and low latency, this stays below it instead of
+/// relying on retries.
+const MIN_REQUEST_INTERVAL: Duration = Duration::from_millis(50);
 
 #[derive(Clone)]
 pub struct Credentials {
@@ -122,6 +126,8 @@ pub struct BlizzardClient {
     retry: RetryPolicy,
     /// Held across the token request so concurrent callers share a single refresh.
     token: Mutex<Option<CachedToken>>,
+    /// When the next request may leave.
+    next_request: Mutex<Instant>,
 }
 
 impl BlizzardClient {
@@ -145,7 +151,20 @@ impl BlizzardClient {
             locale: locale.into(),
             retry,
             token: Mutex::new(None),
+            next_request: Mutex::new(Instant::now()),
         })
+    }
+
+    /// Waits for this request's turn. Each one books the next free slot, so that
+    /// concurrent requests end up evenly spaced.
+    async fn pace(&self) {
+        let slot = {
+            let mut next = self.next_request.lock().await;
+            let slot = (*next).max(Instant::now());
+            *next = slot + MIN_REQUEST_INTERVAL;
+            slot
+        };
+        tokio::time::sleep_until(slot).await;
     }
 
     async fn access_token(&self) -> Result<String, ApiError> {
@@ -217,6 +236,7 @@ impl BlizzardClient {
 
         loop {
             let token = self.access_token().await?;
+            self.pace().await;
             let mut request = self
                 .http
                 .get(url)
@@ -272,6 +292,34 @@ impl BlizzardClient {
             return Err(status_error(url, response).await);
         }
         decode(url, response).await
+    }
+
+    /// `None` when the API answers 404.
+    async fn get_static<T>(&self, url: &str) -> Result<Option<T>, ApiError>
+    where
+        T: DeserializeOwned + Send + 'static,
+    {
+        let response = self.get(url, Namespace::Static, None).await?;
+        if response.status() == StatusCode::NOT_FOUND {
+            return Ok(None);
+        }
+        if !response.status().is_success() {
+            return Err(status_error(url, response).await);
+        }
+        decode(url, response).await.map(Some)
+    }
+
+    /// An icon is a nicety: failing to get one must not lose the name that came
+    /// with it. The lookup is simply tried again later, as the icon stays empty.
+    async fn icon_url(&self, kind: &str, id: i32) -> Option<String> {
+        let url = format!("{}/data/wow/media/{kind}/{id}", self.endpoints.api_base);
+        match self.get_static::<Media>(&url).await {
+            Ok(media) => media.and_then(Media::into_icon_url),
+            Err(error) => {
+                tracing::warn!(kind, id, %error, "cannot look up icon, will retry");
+                None
+            }
+        }
     }
 }
 
@@ -342,14 +390,20 @@ impl AuctionApi for BlizzardClient {
 
     async fn item(&self, id: i32) -> Result<Option<Item>, ApiError> {
         let url = format!("{}/data/wow/item/{id}", self.endpoints.api_base);
-        let response = self.get(&url, Namespace::Static, None).await?;
-        if response.status() == StatusCode::NOT_FOUND {
+        let Some(mut item) = self.get_static::<Item>(&url).await? else {
             return Ok(None);
-        }
-        if !response.status().is_success() {
-            return Err(status_error(&url, response).await);
-        }
-        decode(&url, response).await.map(Some)
+        };
+        item.icon_url = self.icon_url("item", id).await;
+        Ok(Some(item))
+    }
+
+    async fn pet(&self, species_id: i32) -> Result<Option<Pet>, ApiError> {
+        let url = format!("{}/data/wow/pet/{species_id}", self.endpoints.api_base);
+        let Some(mut pet) = self.get_static::<Pet>(&url).await? else {
+            return Ok(None);
+        };
+        pet.icon_url = self.icon_url("pet", species_id).await;
+        Ok(Some(pet))
     }
 }
 

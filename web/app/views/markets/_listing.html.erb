@@ -1,0 +1,83 @@
+<%# Inside the frame, so that it stays in step with the links that change the sort. %>
+<input type="hidden" name="sort" value="<%= listing.sort %>" form="listing-filters">
+<input type="hidden" name="dir" value="<%= listing.dir %>" form="listing-filters">
+
+<div class="listing-summary">
+  <span>
+    <strong><%= number_with_delimiter(listing.total) %></strong>
+    <%= "produit".pluralize(listing.total, :en) %>
+    <%= listing.filtered? ? "trouvé".pluralize(listing.total, :en) : "en vente" %>
+  </span>
+  <% if listing.filtered? %>
+    <%= link_to "Effacer les filtres", market_path(market), class: "link-quiet", data: { turbo_frame: "_top" } %>
+  <% end %>
+</div>
+
+<% if listing.rows.empty? %>
+  <div class="empty-state">
+    <h2>Aucun résultat</h2>
+    <p>Rien ne correspond à ces filtres sur ce marché. Essayez un autre nom, ou une autre catégorie.</p>
+  </div>
+<% else %>
+  <div class="table-wrap">
+    <table class="listing">
+      <thead>
+        <tr>
+          <th scope="col"><%= sort_link "Produit", "name", listing %></th>
+          <th scope="col" class="col-wide">7 jours</th>
+          <th scope="col" class="number"><%= sort_link "Médiane", "price", listing %></th>
+          <th scope="col" class="number col-medium"><%= sort_link "Minimum", "min", listing %></th>
+          <th scope="col" class="number"><%= sort_link "24 h", "change", listing %></th>
+          <th scope="col" class="number col-medium"><%= sort_link "En vente", "quantity", listing %></th>
+          <th scope="col" class="number col-wide"><%= sort_link "Vendus, 24 h", "sold", listing %></th>
+          <th scope="col" class="number col-wide"><%= sort_link "Valeur, 24 h", "value", listing %></th>
+        </tr>
+      </thead>
+      <tbody>
+        <% price_units = money_units(listing.rows.map(&:median_price)) %>
+        <% min_units = money_units(listing.rows.map(&:min_price)) %>
+        <% value_units = money_units(listing.rows.map(&:sold_value)) %>
+        <% listing.rows.each do |row| %>
+          <tr>
+            <td>
+              <div class="product-cell">
+                <%= product_icon(row.icon_url, row.quality) %>
+                <span class="product-label">
+                  <%= link_to row.display_name, market_item_path(market, row.item_id, variant: row.variant_param),
+                        class: "product-link #{quality_class(row.quality)}", data: { turbo_frame: "_top" } %>
+                  <% if row.several_variants? %>
+                    <small class="muted"><%= row.variant_count %> variantes</small>
+                  <% end %>
+                </span>
+              </div>
+            </td>
+            <td class="col-wide"><%= sparkline(listing.sparkline(row)) %></td>
+            <td class="number"><%= money_cell(row.median_price, units: price_units) %></td>
+            <td class="number col-medium"><%= money_cell(row.min_price, units: min_units) %></td>
+            <td class="number"><%= change_pill(row.change) %></td>
+            <td class="number col-medium"><%= number_with_delimiter(row.quantity) %></td>
+            <td class="number col-wide"><%= row.sold_quantity ? number_with_delimiter(row.sold_quantity) : "—" %></td>
+            <td class="number col-wide"><%= row.sold_value ? money_cell(row.sold_value, units: value_units) : "—" %></td>
+          </tr>
+        <% end %>
+      </tbody>
+    </table>
+  </div>
+
+  <nav class="pagination" aria-label="Pages">
+    <% if listing.previous_page? %>
+      <%= link_to "← Précédent", listing_page_path(market, listing, listing.page - 1) %>
+    <% end %>
+    <span class="muted">Page <%= number_with_delimiter(listing.page) %> sur <%= number_with_delimiter(listing.page_count) %></span>
+    <% if listing.next_page? %>
+      <%= link_to "Suivant →", listing_page_path(market, listing, listing.page + 1) %>
+    <% end %>
+  </nav>
+
+  <p class="note">
+    <%= render "shared/sales_note" %>
+    <% if listing.rows.any?(&:several_variants?) %>
+      Pour un équipement vendu en plusieurs variantes, la médiane est une moyenne pondérée par la quantité.
+    <% end %>
+  </p>
+<% end %>

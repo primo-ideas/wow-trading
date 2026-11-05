@@ -1,73 +1,111 @@
-<% content_for :title, "#{@item.display_name} · #{@market.display_name}" %>
+<% content_for :title, "#{@product.name} · #{@market.display_name}" %>
 
 <nav class="breadcrumb" aria-label="Fil d'Ariane">
-  <%= link_to "Hôtels des ventes", root_path %> /
-  <%= link_to "#{@market.region.upcase} · #{@market.display_name}", market_path(@market) %>
+  <%= link_to "#{@market.region.upcase} · #{short_market_name(@market)}", market_path(@market) %>
 </nav>
 
-<h1><%= @item.display_name %></h1>
-<p class="subtitle">
-  <%= [ quality_label(@item.quality), @item.item_class, @item.item_subclass, variant_label(@variant) ].compact_blank.join(" · ") %>
-  <% if @history.latest_taken_at %>
-    <span class="muted">Dernier relevé <%= snapshot_age(@history.latest_taken_at) %></span>
-  <% end %>
-</p>
+<header class="product-head">
+  <%= product_icon(@product.icon_url, @product.quality, size: :large) %>
+  <div class="product-head-text">
+    <h1 class="<%= quality_class(@product.quality) %>"><%= @product.name %></h1>
+    <ul class="chips">
+      <% [ quality_label(@product.quality), @item.item_class, @item.item_subclass ].compact_blank.uniq.each do |chip| %>
+        <li><%= chip %></li>
+      <% end %>
+      <% if @item.level.to_i.positive? && !@product.pet? %>
+        <li>Niveau <%= @item.level %></li>
+      <% end %>
+      <li><%= link_to "Voir sur Wowhead ↗", @product.wowhead_url, rel: "noopener noreferrer", target: "_blank" %></li>
+    </ul>
+  </div>
+  <%= freshness(@history.latest_taken_at) %>
+</header>
 
-<% if @variants.many? %>
-  <nav class="filters" aria-label="Variantes">
-    <% @variants.each do |variant| %>
-      <%= link_to variant_label(variant) || "Sans variante",
-            market_item_path(@market, @item, variant: variant, period: @history.period),
-            class: ("is-selected" if variant == @variant),
-            "aria-current": ("true" if variant == @variant) %>
+<turbo-frame id="item-data" data-turbo-action="advance">
+  <div class="controls-row">
+    <nav class="segmented" aria-label="Période">
+      <% ItemHistory::PERIODS.each_key do |period| %>
+        <%= link_to period,
+              market_item_path(@market, @item, variant: @variant.presence, period: period),
+              class: ("is-selected" if period == @history.period),
+              "aria-current": ("true" if period == @history.period) %>
+      <% end %>
+    </nav>
+
+    <% if @variants.many? && !@product.pet? %>
+      <details class="switcher variant-menu" data-menu>
+        <summary>
+          <span class="switcher-label"><%= variant_label(@variant) || "Sans variante" %></span>
+        </summary>
+        <div class="menu-panel">
+          <p class="menu-note"><%= @variants.size %> variantes en vente, du plus au moins listé.</p>
+          <ul class="menu-list">
+            <% @variants.each do |option| %>
+              <li>
+                <%= link_to market_item_path(@market, @item, variant: option.variant, period: @history.period),
+                      class: ("is-selected" if option.variant == @variant) do %>
+                  <span><%= variant_label(option.variant) || "Sans variante" %></span>
+                  <span class="menu-figure"><%= money(option.min_price) %> · <%= number_with_delimiter(option.quantity) %></span>
+                <% end %>
+              </li>
+            <% end %>
+          </ul>
+        </div>
+      </details>
     <% end %>
-  </nav>
-<% end %>
+  </div>
 
-<nav class="filters" aria-label="Période">
-  <% ItemHistory::PERIODS.each_key do |period| %>
-    <%= link_to period,
-          market_item_path(@market, @item, variant: @variant.presence, period: period),
-          class: ("is-selected" if period == @history.period),
-          "aria-current": ("true" if period == @history.period) %>
+  <% if @history.prices.empty? %>
+    <div class="empty-state">
+      <h2>Rien sur cette période</h2>
+      <p>Cet objet n'était pas en vente sur ce marché pendant cette période. Essayez une période plus longue.</p>
+    </div>
+  <% else %>
+    <% current = @history.current %>
+    <% if current.nil? %>
+      <p class="note">Aucune annonce au dernier relevé : les courbes s'arrêtent à la dernière fois où cet objet était en vente.</p>
+    <% end %>
+
+    <section class="summary" aria-label="En résumé">
+      <div class="summary-main">
+        <p class="summary-label">Prix médian</p>
+        <p class="summary-price"><%= money(current&.median_price) %></p>
+        <p class="summary-changes">
+          <span><%= change_pill(change_between(current&.median_price, @history.reference&.median_price)) %> <span class="muted">sur 24 h</span></span>
+          <span><%= change_pill(change_between(current&.median_price, @history.week_reference&.median_price)) %> <span class="muted">sur 7 jours</span></span>
+        </p>
+        <%= render "items/price_range", range: @history.median_range, current: current&.median_price, period: @history.period %>
+      </div>
+      <dl class="summary-facts">
+        <div>
+          <dt>Prix minimum</dt>
+          <dd><%= money(current&.min_price) %></dd>
+        </div>
+        <div>
+          <dt>En vente</dt>
+          <dd><%= number_with_delimiter(current&.quantity.to_i) %> <small class="muted"><%= number_with_delimiter(current&.auction_count.to_i) %> annonces</small></dd>
+        </div>
+        <div>
+          <dt>Vendus sur 24 h <small class="muted">estimation</small></dt>
+          <dd><%= number_with_delimiter(@history.sold_last_day) %></dd>
+        </div>
+        <div>
+          <dt>Valeur vendue sur 24 h <small class="muted">estimation</small></dt>
+          <dd><%= money(@history.sold_value_last_day) %></dd>
+        </div>
+      </dl>
+    </section>
+
+    <%= render "charts/line", chart: price_chart(@history), title: "Prix à l'unité",
+          description: "Médiane et minimum à chaque relevé", height: "tall" %>
+
+    <div class="chart-pair">
+      <%= render "charts/columns", chart: sales_chart(@history), title: "Ventes estimées",
+            description: @history.period == ItemHistory::HOURLY_SALES_PERIOD ? "Quantité par heure" : "Quantité par jour (UTC), le dernier n'est pas terminé" %>
+      <%= render "charts/line", chart: quantity_chart(@history), title: "Quantité en vente",
+            description: "Total à chaque relevé", height: "short" %>
+    </div>
+
+    <p class="note"><%= render "shared/sales_note" %></p>
   <% end %>
-</nav>
-
-<% if @history.prices.empty? %>
-  <p class="empty">Aucune donnée pour cet objet sur cette période.</p>
-<% else %>
-  <% if @history.current.nil? %>
-    <p class="note">Aucune annonce au dernier relevé : les courbes s'arrêtent à la dernière fois où cet objet était en vente.</p>
-  <% end %>
-
-  <dl class="tiles">
-    <div class="tile">
-      <dt>Prix médian</dt>
-      <dd class="tile-value"><%= money(@history.current&.median_price) %></dd>
-      <dd class="tile-delta"><%= price_change(@history.current&.median_price, @history.reference&.median_price) %> sur 24 h</dd>
-    </div>
-    <div class="tile">
-      <dt>Prix minimum</dt>
-      <dd class="tile-value"><%= money(@history.current&.min_price) %></dd>
-      <dd class="tile-delta"><%= price_change(@history.current&.min_price, @history.reference&.min_price) %> sur 24 h</dd>
-    </div>
-    <div class="tile">
-      <dt>En vente</dt>
-      <dd class="tile-value"><%= number_with_delimiter(@history.current&.quantity.to_i) %></dd>
-    </div>
-    <div class="tile">
-      <dt>Vendus sur 24 h (estimation)</dt>
-      <dd class="tile-value"><%= number_with_delimiter(@history.sold_last_day) %></dd>
-    </div>
-  </dl>
-
-  <%= render "charts/line", chart: price_chart(@history),
-        title: "Prix à l'unité", description: "Prix médian et prix minimum à chaque relevé" %>
-  <%= render "charts/columns", chart: sales_chart(@history),
-        title: "Ventes estimées",
-        description: @history.period == ItemHistory::HOURLY_SALES_PERIOD ? "Quantité par heure" : "Quantité par jour (UTC) ; le dernier jour n'est pas terminé" %>
-  <%= render "charts/line", chart: quantity_chart(@history),
-        title: "Quantité en vente", description: "Quantité totale en vente à chaque relevé" %>
-
-  <p class="note"><%= render "shared/sales_note" %></p>
-<% end %>
+</turbo-frame>

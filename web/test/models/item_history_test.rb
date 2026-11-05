@@ -104,11 +104,32 @@ class ItemHistoryTest < ActiveSupport::TestCase
     assert_equal 1, history.prices.size
   end
 
+  test "the reference of a week ago comes from about a week before" do
+    create_price(@market, 2589, NOW - 7.days, median: 700)
+
+    assert_equal 700, history.week_reference.median_price
+  end
+
+  test "gives where the median moved over the period" do
+    create_price(@market, 2589, NOW - 2.days, median: 100)
+    create_price(@market, 2589, NOW - 1.day, median: 400)
+    create_price(@market, 2589, NOW, median: 250)
+
+    range = history.median_range
+
+    assert_equal [ 100, 400, 250 ], [ range.low, range.high, range.average ]
+  end
+
+  test "without a price there is no range" do
+    assert_nil history.median_range
+  end
+
   test "counts what sold over the last day" do
-    create_sale(@market, 2589, NOW, quantity: 3)
-    create_sale(@market, 2589, NOW - 2.days, quantity: 100)
+    create_sale(@market, 2589, NOW, quantity: 3, value: 30)
+    create_sale(@market, 2589, NOW - 2.days, quantity: 100, value: 1_000)
 
     assert_equal 3, history.sold_last_day
+    assert_equal 30, history.sold_value_last_day
   end
 
   test "a market without a snapshot has nothing" do
@@ -119,7 +140,10 @@ class ItemHistoryTest < ActiveSupport::TestCase
     assert_nil empty.reference
     assert_empty empty.prices
     assert_empty empty.sales
+    assert_nil empty.week_reference
+    assert_nil empty.median_range
     assert_equal 0, empty.sold_last_day
+    assert_equal 0, empty.sold_value_last_day
   end
 
   private

@@ -1,94 +1,83 @@
-# What is on sale on a market at its latest snapshot, one row per item variant.
+# A page of what is on sale on a market, as filtered and sorted by the reader.
 class MarketListing
-  PAGE_SIZE = 100
+  PAGE_SIZE = 50
   DEFAULT_SORT = "value"
-  # Every order ends on the primary key, so that pages do not overlap.
+  # Column, and the direction a first click on its header sorts in.
   SORTS = {
-    "value" => "sold.sold_value DESC NULLS LAST",
-    "name" => 'i.name COLLATE "und-x-icu" ASC NULLS LAST',
-    "price" => "p.median_price DESC",
-    "quantity" => "p.quantity DESC"
+    "name" => [ %(#{ListedProduct::NAME} COLLATE "und-x-icu"), "asc" ],
+    "price" => [ "listed.median_price", "desc" ],
+    "min" => [ "listed.min_price", "asc" ],
+    "change" => [ "listed.change", "desc" ],
+    "quantity" => [ "listed.quantity", "desc" ],
+    "sold" => [ "listed.sold_quantity", "desc" ],
+    "value" => [ "listed.sold_value", "desc" ]
   }.freeze
-
-  # How far from exactly a day ago a snapshot can be and still give a daily change.
-  REFERENCE_TOLERANCE = 12.hours
   # Far past any real listing, and keeps the offset within what Postgres accepts.
   MAX_PAGE = 100_000
 
-  attr_reader :sort, :page, :query
+  attr_reader :sort, :page, :query, :item_class, :quality
 
-  def initialize(market, query: nil, sort: nil, page: nil)
+  def initialize(market, query: nil, item_class: nil, quality: nil, sort: nil, dir: nil, page: nil)
+    @market_query = MarketQuery.new(market)
     @market = market
     @query = query.to_s.delete("\0").strip
+    @item_class = item_class.to_s.delete("\0").presence
+    @quality = quality.to_s.delete("\0").presence
     @sort = SORTS.key?(sort) ? sort : DEFAULT_SORT
+    @dir = dir if %w[asc desc].include?(dir)
     @page = page.to_s.to_i.clamp(1, MAX_PAGE)
   end
 
-  def latest_taken_at
-    return @latest_taken_at if defined?(@latest_taken_at)
+  def dir = @dir || default_dir(sort)
 
-    @latest_taken_at = @market.latest_snapshot_at
+  def default_dir(column) = SORTS.fetch(column).last
+
+  def latest_taken_at = @market_query.latest_taken_at
+
+  def compared? = @market_query.compared?
+
+  def rows
+    @rows ||= @market_query.products(
+      where: filter, binds: filter_binds,
+      order: "#{SORTS.fetch(sort).first} #{dir.upcase} NULLS LAST",
+      limit: PAGE_SIZE, offset: (page - 1) * PAGE_SIZE
+    )
   end
 
-  def rows = fetched.first(PAGE_SIZE)
+  def total
+    @total ||= @market_query.count(where: filter, binds: filter_binds)
+  end
 
-  def next_page? = fetched.size > PAGE_SIZE
+  def page_count = [ (total.to_f / PAGE_SIZE).ceil, 1 ].max
+
+  def next_page? = page < page_count
 
   def previous_page? = page > 1
 
+  def filtered? = query.present? || item_class.present? || quality.present?
+
+  def sparkline(row) = sparklines.for(row)
+
   private
 
-  def fetched
-    @fetched ||= latest_taken_at ? PricePoint.find_by_sql([ sql, binds ]) : []
+  def sparklines
+    @sparklines ||= Sparklines.new(@market, rows, latest_taken_at)
   end
 
-  def reference_taken_at
-    day_ago = latest_taken_at - 1.day
-    @market.snapshots
-      .where(taken_at: (day_ago - REFERENCE_TOLERANCE)..day_ago)
-      .maximum(:taken_at)
+  def filter
+    conditions = []
+    conditions << "(#{TextSearch.condition(ListedProduct::SEARCH_NAME)} OR listed.item_id = :item_id)" if query.present?
+    conditions << "items.item_class = :item_class" if item_class
+    conditions << "items.quality = :quality" if quality
+    conditions.join(" AND ").presence
   end
 
-  def binds
+  def filter_binds
     {
-      house: @market.id,
-      latest: latest_taken_at,
-      since: latest_taken_at - 1.day,
-      reference: reference_taken_at,
-      # One more than a page: the extra row says whether there is a next page.
-      limit: PAGE_SIZE + 1,
-      offset: (page - 1) * PAGE_SIZE,
       query: TextSearch.pattern(query),
-      item_id: query.match?(/\A\d{1,9}\z/) ? query.to_i : nil
+      item_id: query.match?(/\A\d{1,9}\z/) ? query.to_i : nil,
+      item_class: item_class,
+      quality: quality
     }
-  end
-
-  def sql
-    <<~SQL
-      WITH sold AS (
-        SELECT item_id, variant,
-               sum(sold_quantity)::bigint AS sold_quantity,
-               least(sum(sold_value), 9223372036854775807)::bigint AS sold_value
-        FROM sales_points
-        WHERE auction_house_id = :house AND taken_at > :since
-        GROUP BY item_id, variant
-      )
-      SELECT p.item_id, p.variant, p.min_price, p.median_price, p.quantity, p.auction_count,
-             i.name, i.quality,
-             sold.sold_quantity, sold.sold_value,
-             reference.median_price AS reference_median_price
-      FROM price_points p
-      LEFT JOIN items i ON i.id = p.item_id
-      LEFT JOIN sold ON sold.item_id = p.item_id AND sold.variant = p.variant
-      LEFT JOIN price_points reference
-        ON reference.auction_house_id = p.auction_house_id
-       AND reference.item_id = p.item_id
-       AND reference.variant = p.variant
-       AND reference.taken_at = :reference
-      WHERE p.auction_house_id = :house AND p.taken_at = :latest
-      #{"AND (#{TextSearch.condition("i.name")} OR p.item_id = :item_id)" if query.present?}
-      ORDER BY #{SORTS.fetch(sort)}, p.item_id, p.variant
-      LIMIT :limit OFFSET :offset
-    SQL
   end
 end

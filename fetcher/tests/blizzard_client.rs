@@ -430,10 +430,196 @@ async fn reads_an_item_from_the_static_namespace() {
 
     let item = client(&server).item(190396).await.unwrap().unwrap();
 
-    assert_eq!(item.name, "Minerai de test");
-    assert_eq!(item.quality.unwrap().kind, "RARE");
+    assert_eq!(item.name(), Some("Minerai de test"));
+    assert_eq!(item.quality.as_ref().unwrap().kind, "RARE");
     assert_eq!(item.level, Some(70));
-    assert_eq!(item.item_class.unwrap().name, "Artisanat");
+    assert_eq!(item.item_class.unwrap().name.as_deref(), Some("Artisanat"));
+    assert_eq!(item.icon_url, None);
+}
+
+/// As captured from eu.api.blizzard.com: `/data/wow/item/732` in `fr_FR`.
+#[tokio::test]
+async fn an_item_with_an_unnamed_subclass_is_still_an_item() {
+    let server = MockServer::start().await;
+    mount_token(&server).await;
+    Mock::given(method("GET"))
+        .and(path("/data/wow/item/732"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
+            "id": 732,
+            "name": "Okra mûr",
+            "quality": { "type": "POOR", "name": "Mauvais" },
+            "level": 5,
+            "item_class": { "name": "Artisanat", "id": 7 },
+            "item_subclass": { "name": null, "id": 0 },
+        })))
+        .mount(&server)
+        .await;
+
+    let item = client(&server).item(732).await.unwrap().unwrap();
+
+    assert_eq!(item.name(), Some("Okra mûr"));
+    assert_eq!(item.item_subclass.unwrap().name, None);
+}
+
+/// As captured from eu.api.blizzard.com: `/data/wow/item/3372` in `fr_FR`.
+#[tokio::test]
+async fn an_item_without_a_translation_falls_back_on_its_preview_name() {
+    let server = MockServer::start().await;
+    mount_token(&server).await;
+    Mock::given(method("GET"))
+        .and(path("/data/wow/item/3372"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
+            "id": 3372,
+            "name": null,
+            "quality": { "type": "POOR", "name": "Mauvais" },
+            "level": 11,
+            "preview_item": { "name": "Cracked Vial" },
+        })))
+        .mount(&server)
+        .await;
+
+    let item = client(&server).item(3372).await.unwrap().unwrap();
+
+    assert_eq!(item.name(), Some("Cracked Vial"));
+}
+
+#[tokio::test]
+async fn an_item_without_any_name_is_still_an_item() {
+    let server = MockServer::start().await;
+    mount_token(&server).await;
+    Mock::given(method("GET"))
+        .and(path("/data/wow/item/1"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
+            "id": 1, "name": null,
+        })))
+        .mount(&server)
+        .await;
+
+    let item = client(&server).item(1).await.unwrap().unwrap();
+
+    assert_eq!(item.name(), None);
+}
+
+#[tokio::test]
+async fn requests_are_spaced_out_even_when_concurrent() {
+    let server = MockServer::start().await;
+    mount_token(&server).await;
+    Mock::given(method("GET"))
+        .and(path("/data/wow/item/1"))
+        .respond_with(ResponseTemplate::new(404))
+        .expect(5)
+        .mount(&server)
+        .await;
+    let client = client(&server);
+    let started = std::time::Instant::now();
+
+    let requests: Vec<_> = (0..5).map(|_| client.item(1)).collect();
+    futures::future::join_all(requests).await;
+
+    // Four intervals at least, of 50 ms each.
+    assert!(started.elapsed() >= Duration::from_millis(200));
+}
+
+/// As captured from eu.api.blizzard.com: `/data/wow/media/item/190396`.
+fn media(icon: &str) -> ResponseTemplate {
+    ResponseTemplate::new(200).set_body_json(serde_json::json!({
+        "assets": [{ "key": "icon", "value": icon, "file_data_id": 4615906 }],
+        "id": 190396,
+    }))
+}
+
+#[tokio::test]
+async fn reads_the_icon_of_an_item() {
+    let server = MockServer::start().await;
+    mount_token(&server).await;
+    Mock::given(method("GET"))
+        .and(path("/data/wow/item/190396"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
+            "id": 190396, "name": "Minerai",
+        })))
+        .mount(&server)
+        .await;
+    Mock::given(method("GET"))
+        .and(path("/data/wow/media/item/190396"))
+        .and(query_param("namespace", "static-eu"))
+        .respond_with(media("https://render.example/icons/56/4615906.jpg"))
+        .expect(1)
+        .mount(&server)
+        .await;
+
+    let item = client(&server).item(190396).await.unwrap().unwrap();
+
+    assert_eq!(
+        item.icon_url.as_deref(),
+        Some("https://render.example/icons/56/4615906.jpg")
+    );
+}
+
+#[tokio::test]
+async fn a_failing_icon_does_not_lose_the_item() {
+    let server = MockServer::start().await;
+    mount_token(&server).await;
+    Mock::given(method("GET"))
+        .and(path("/data/wow/item/190396"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
+            "id": 190396, "name": "Minerai",
+        })))
+        .mount(&server)
+        .await;
+    Mock::given(method("GET"))
+        .and(path("/data/wow/media/item/190396"))
+        .respond_with(ResponseTemplate::new(500))
+        .mount(&server)
+        .await;
+
+    let item = client(&server).item(190396).await.unwrap().unwrap();
+
+    assert_eq!(item.name(), Some("Minerai"));
+    assert_eq!(item.icon_url, None);
+}
+
+/// As captured from eu.api.blizzard.com: `/data/wow/pet/39` in `fr_FR`.
+#[tokio::test]
+async fn reads_a_pet_and_its_icon() {
+    let server = MockServer::start().await;
+    mount_token(&server).await;
+    Mock::given(method("GET"))
+        .and(path("/data/wow/pet/39"))
+        .and(query_param("namespace", "static-eu"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
+            "id": 39,
+            "name": "Ecureuil mécanique",
+            "battle_pet_type": { "id": 9, "type": "MECHANICAL", "name": "Machine" },
+            "is_capturable": false,
+        })))
+        .mount(&server)
+        .await;
+    Mock::given(method("GET"))
+        .and(path("/data/wow/media/pet/39"))
+        .respond_with(media("https://render.example/icons/56/656559.jpg"))
+        .mount(&server)
+        .await;
+
+    let pet = client(&server).pet(39).await.unwrap().unwrap();
+
+    assert_eq!(pet.name.as_deref(), Some("Ecureuil mécanique"));
+    assert_eq!(
+        pet.icon_url.as_deref(),
+        Some("https://render.example/icons/56/656559.jpg")
+    );
+}
+
+#[tokio::test]
+async fn an_unknown_pet_is_none_rather_than_an_error() {
+    let server = MockServer::start().await;
+    mount_token(&server).await;
+    Mock::given(method("GET"))
+        .and(path("/data/wow/pet/999999"))
+        .respond_with(ResponseTemplate::new(404))
+        .mount(&server)
+        .await;
+
+    assert!(client(&server).pet(999999).await.unwrap().is_none());
 }
 
 #[tokio::test]

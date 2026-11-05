@@ -1,0 +1,11 @@
+<% content_for :title, "Recherche" %>
+
+<h1>Recherche</h1>
+<p class="lead">
+  <% if @search.query.present? %>Résultats pour « <%= @search.query %> », <% end %>sur
+  <%= search_markets.map(&:display_name).to_sentence %>.
+</p>
+
+<div class="panel">
+  <%= render "search/results", search: @search %>
+</div>

@@ -3,22 +3,29 @@
   <head>
     <title><%= [ content_for(:title), "wow-market" ].compact.join(" · ") %></title>
     <meta name="viewport" content="width=device-width,initial-scale=1">
+    <meta name="description" content="Cours de l'hôtel des ventes de World of Warcraft : prix, tendances et ventes estimées, royaume par royaume.">
+    <meta name="turbo-prefetch" content="false">
+    <meta name="color-scheme" content="dark">
+    <meta name="theme-color" content="#0c0f14">
     <%= csrf_meta_tags %>
     <%= csp_meta_tag %>
 
-    <link rel="icon" href="/icon.png" type="image/png">
     <link rel="icon" href="/icon.svg" type="image/svg+xml">
 
-    <%= stylesheet_link_tag :app %>
-    <%= javascript_include_tag "charts", defer: true %>
+    <%= stylesheet_link_tag :app, "data-turbo-track": "reload" %>
+    <%= javascript_include_tag "turbo.min", type: "module", "data-turbo-track": "reload" %>
+    <%= javascript_include_tag "charts", defer: true, "data-turbo-track": "reload" %>
+    <%= javascript_include_tag "interface", defer: true, "data-turbo-track": "reload" %>
   </head>
 
   <body>
-    <header class="site-header">
-      <%= link_to "wow-market", root_path, class: "site-name" %>
-    </header>
+    <%= render "layouts/header" %>
     <main>
       <%= yield %>
     </main>
+    <footer class="site-footer">
+      <p>Données de l'API Battle.net, relevées environ une fois par heure. Les ventes sont estimées.</p>
+      <p>Site non affilié à Blizzard Entertainment. World of Warcraft est une marque de Blizzard Entertainment, Inc.</p>
+    </footer>
   </body>
 </html>
