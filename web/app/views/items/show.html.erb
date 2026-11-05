@@ -1,0 +1,73 @@
+<% content_for :title, "#{@item.display_name} · #{@market.display_name}" %>
+
+<nav class="breadcrumb" aria-label="Fil d'Ariane">
+  <%= link_to "Hôtels des ventes", root_path %> /
+  <%= link_to "#{@market.region.upcase} · #{@market.display_name}", market_path(@market) %>
+</nav>
+
+<h1><%= @item.display_name %></h1>
+<p class="subtitle">
+  <%= [ quality_label(@item.quality), @item.item_class, @item.item_subclass, variant_label(@variant) ].compact_blank.join(" · ") %>
+  <% if @history.latest_taken_at %>
+    <span class="muted">Dernier relevé <%= snapshot_age(@history.latest_taken_at) %></span>
+  <% end %>
+</p>
+
+<% if @variants.many? %>
+  <nav class="filters" aria-label="Variantes">
+    <% @variants.each do |variant| %>
+      <%= link_to variant_label(variant) || "Sans variante",
+            market_item_path(@market, @item, variant: variant, period: @history.period),
+            class: ("is-selected" if variant == @variant),
+            "aria-current": ("true" if variant == @variant) %>
+    <% end %>
+  </nav>
+<% end %>
+
+<nav class="filters" aria-label="Période">
+  <% ItemHistory::PERIODS.each_key do |period| %>
+    <%= link_to period,
+          market_item_path(@market, @item, variant: @variant.presence, period: period),
+          class: ("is-selected" if period == @history.period),
+          "aria-current": ("true" if period == @history.period) %>
+  <% end %>
+</nav>
+
+<% if @history.prices.empty? %>
+  <p class="empty">Aucune donnée pour cet objet sur cette période.</p>
+<% else %>
+  <% if @history.current.nil? %>
+    <p class="note">Aucune annonce au dernier relevé : les courbes s'arrêtent à la dernière fois où cet objet était en vente.</p>
+  <% end %>
+
+  <dl class="tiles">
+    <div class="tile">
+      <dt>Prix médian</dt>
+      <dd class="tile-value"><%= money(@history.current&.median_price) %></dd>
+      <dd class="tile-delta"><%= price_change(@history.current&.median_price, @history.reference&.median_price) %> sur 24 h</dd>
+    </div>
+    <div class="tile">
+      <dt>Prix minimum</dt>
+      <dd class="tile-value"><%= money(@history.current&.min_price) %></dd>
+      <dd class="tile-delta"><%= price_change(@history.current&.min_price, @history.reference&.min_price) %> sur 24 h</dd>
+    </div>
+    <div class="tile">
+      <dt>En vente</dt>
+      <dd class="tile-value"><%= number_with_delimiter(@history.current&.quantity.to_i) %></dd>
+    </div>
+    <div class="tile">
+      <dt>Vendus sur 24 h (estimation)</dt>
+      <dd class="tile-value"><%= number_with_delimiter(@history.sold_last_day) %></dd>
+    </div>
+  </dl>
+
+  <%= render "charts/line", chart: price_chart(@history),
+        title: "Prix à l'unité", description: "Prix médian et prix minimum à chaque relevé" %>
+  <%= render "charts/columns", chart: sales_chart(@history),
+        title: "Ventes estimées",
+        description: @history.period == ItemHistory::HOURLY_SALES_PERIOD ? "Quantité par heure" : "Quantité par jour (UTC) ; le dernier jour n'est pas terminé" %>
+  <%= render "charts/line", chart: quantity_chart(@history),
+        title: "Quantité en vente", description: "Quantité totale en vente à chaque relevé" %>
+
+  <p class="note"><%= render "shared/sales_note" %></p>
+<% end %>

@@ -1,0 +1,70 @@
+<% content_for :title, @market.display_name %>
+
+<nav class="breadcrumb" aria-label="Fil d'Ariane">
+  <%= link_to "Hôtels des ventes", root_path %> / <%= @market.region.upcase %>
+</nav>
+<h1><%= @market.display_name %></h1>
+
+<% if @listing.latest_taken_at.nil? %>
+  <p class="empty">Aucun relevé pour ce marché pour l'instant.</p>
+<% else %>
+  <p class="subtitle">Dernier relevé <%= snapshot_age(@listing.latest_taken_at) %></p>
+
+  <%= form_with url: market_path(@market), method: :get, class: "search", role: "search" do |form| %>
+    <%= form.hidden_field :sort, value: @listing.sort if @listing.sort != MarketListing::DEFAULT_SORT %>
+    <%= form.label :q, "Chercher un objet", class: "search-label" %>
+    <%= form.search_field :q, value: @listing.query, placeholder: "Nom ou identifiant" %>
+    <%= form.submit "Chercher", name: nil %>
+  <% end %>
+
+  <% if @listing.rows.empty? %>
+    <p class="empty">
+      <%= @listing.query.present? ? "Aucun objet ne correspond à cette recherche." : "Rien n'est en vente à ce relevé." %>
+    </p>
+  <% else %>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th scope="col"><%= sort_link "Objet", "name", @listing %></th>
+            <th scope="col" class="number"><%= sort_link "Médiane", "price", @listing %></th>
+            <th scope="col" class="number">Minimum</th>
+            <th scope="col" class="number">Sur 24 h</th>
+            <th scope="col" class="number"><%= sort_link "En vente", "quantity", @listing %></th>
+            <th scope="col" class="number">Vendus, 24 h</th>
+            <th scope="col" class="number"><%= sort_link "Valeur vendue, 24 h", "value", @listing %></th>
+          </tr>
+        </thead>
+        <tbody>
+          <% @listing.rows.each do |row| %>
+            <tr>
+              <td>
+                <%= link_to listed_name(row), market_item_path(@market, row.item_id, variant: row.variant.presence) %>
+                <% if variant_label(row.variant) %>
+                  <span class="muted"><%= variant_label(row.variant) %></span>
+                <% end %>
+              </td>
+              <td class="number"><%= money(row.median_price) %></td>
+              <td class="number"><%= money(row.min_price) %></td>
+              <td class="number"><%= price_change(row.median_price, row.reference_median_price) %></td>
+              <td class="number"><%= number_with_delimiter(row.quantity) %></td>
+              <td class="number"><%= number_with_delimiter(row.sold_quantity.to_i) %></td>
+              <td class="number"><%= money(row.sold_value.to_i) %></td>
+            </tr>
+          <% end %>
+        </tbody>
+      </table>
+    </div>
+
+    <p class="note"><%= render "shared/sales_note" %></p>
+
+    <nav class="pagination" aria-label="Pages">
+      <% if @listing.previous_page? %>
+        <%= link_to "← Précédent", listing_page_path(@market, @listing, @listing.page - 1) %>
+      <% end %>
+      <% if @listing.next_page? %>
+        <%= link_to "Suivant →", listing_page_path(@market, @listing, @listing.page + 1) %>
+      <% end %>
+    </nav>
+  <% end %>
+<% end %>

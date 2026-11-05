@@ -1,0 +1,19 @@
+# The schema belongs to the fetcher (see fetcher/migrations): this app has no
+# migrations, and outside of tests Postgres itself refuses its writes.
+default: &default
+  adapter: postgresql
+  encoding: unicode
+  max_connections: <%= ENV.fetch("RAILS_MAX_THREADS") { 5 } %>
+  url: <%= ENV.fetch("DATABASE_URL") %>
+  variables:
+    default_transaction_read_only: "on"
+
+development:
+  <<: *default
+
+test:
+  <<: *default
+  variables: {}
+
+production:
+  <<: *default

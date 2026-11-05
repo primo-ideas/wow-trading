@@ -1,0 +1,26 @@
+<details class="chart-data">
+  <summary>Voir les données</summary>
+  <div class="table-wrap">
+    <table>
+      <caption class="visually-hidden"><%= title %></caption>
+      <thead>
+        <tr>
+          <th scope="col">Date</th>
+          <% chart.table_columns.each do |column| %>
+            <th scope="col" class="number"><%= column %></th>
+          <% end %>
+        </tr>
+      </thead>
+      <tbody>
+        <% chart.table_rows.each do |date, *values| %>
+          <tr>
+            <td><%= date %></td>
+            <% values.each do |value| %>
+              <td class="number"><%= value %></td>
+            <% end %>
+          </tr>
+        <% end %>
+      </tbody>
+    </table>
+  </div>
+</details>

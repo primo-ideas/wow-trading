@@ -184,9 +184,13 @@ function Start-Postgres {
 
     Write-Step 'Starting Postgres'
     New-Item -ItemType Directory -Force $Logs | Out-Null
-    $process = Start-Process -FilePath (Join-Path $PgBin 'pg_ctl.exe') -Wait -PassThru -NoNewWindow `
+    # Not Start-Process -Wait: it also waits for descendants, and the server pg_ctl
+    # leaves running never exits. Reading Handle is what keeps ExitCode available.
+    $process = Start-Process -FilePath (Join-Path $PgBin 'pg_ctl.exe') -PassThru -NoNewWindow `
         -RedirectStandardOutput (Join-Path $Logs 'pg_ctl.out') `
         -ArgumentList @('-D', "`"$PgData`"", '-l', "`"$(Join-Path $Logs 'postgres.log')`"", '-w', 'start')
+    $null = $process.Handle
+    $process.WaitForExit()
     if ($process.ExitCode -ne 0) {
         throw "Postgres did not start, see $(Join-Path $Logs 'postgres.log')"
     }

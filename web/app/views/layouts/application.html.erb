@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html lang="fr">
+  <head>
+    <title><%= [ content_for(:title), "wow-market" ].compact.join(" · ") %></title>
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <%= csrf_meta_tags %>
+    <%= csp_meta_tag %>
+
+    <link rel="icon" href="/icon.png" type="image/png">
+    <link rel="icon" href="/icon.svg" type="image/svg+xml">
+
+    <%= stylesheet_link_tag :app %>
+    <%= javascript_include_tag "charts", defer: true %>
+  </head>
+
+  <body>
+    <header class="site-header">
+      <%= link_to "wow-market", root_path, class: "site-name" %>
+    </header>
+    <main>
+      <%= yield %>
+    </main>
+  </body>
+</html>

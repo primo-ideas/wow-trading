@@ -226,7 +226,7 @@ mod tests {
         let medium = [live(1, 10, 1, 100, TimeLeft::Medium)];
         let long = [live(1, 10, 1, 100, TimeLeft::Long)];
         let very_long = [live(1, 10, 1, 100, TimeLeft::VeryLong)];
-        let minutes = |count| Duration::from_secs(count * 60);
+        let minutes = |count: u64| Duration::from_secs(count * 60);
 
         assert_eq!(estimate_sales(&medium, &[], minutes(29)).len(), 1);
         assert_eq!(estimate_sales(&medium, &[], minutes(30)).len(), 0);

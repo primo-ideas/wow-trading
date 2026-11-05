@@ -1,0 +1,10 @@
+/.bundle
+/log/*
+!/log/.keep
+/tmp/*
+!/tmp/.keep
+/tmp/pids/*
+!/tmp/pids/
+!/tmp/pids/.keep
+/public/assets
+/config/*.key

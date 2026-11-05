@@ -1,0 +1,169 @@
+# The curves of one item variant on one market. Hourly detail comes from the
+# partitioned tables, and older days from the tables the fetcher rolls them up into.
+#
+# The period ends at the latest snapshot rather than now, so that curves do not
+# empty out when the fetcher has not run for a while.
+class ItemHistory
+  PERIODS = {
+    "24h" => 1.day,
+    "7j" => 7.days,
+    "30j" => 30.days,
+    "90j" => 90.days,
+    "tout" => nil
+  }.freeze
+  DEFAULT_PERIOD = "7j"
+  # Sales are spiky: per hour over a day, per day beyond that.
+  HOURLY_SALES_PERIOD = "24h"
+
+  # Before any data, for periods without a start.
+  EARLIEST = Time.utc(2000)
+
+  SalesBucket = Data.define(:starts_at, :hourly, :sold_quantity, :sold_value, :sold_auctions) do
+    def hourly? = hourly
+  end
+
+  attr_reader :period, :variant
+
+  def initialize(market, item, variant:, period: nil)
+    @market = market
+    @item = item
+    @variant = variant
+    @period = PERIODS.key?(period) ? period : DEFAULT_PERIOD
+  end
+
+  def latest_taken_at
+    return @latest_taken_at if defined?(@latest_taken_at)
+
+    @latest_taken_at = @market.latest_snapshot_at
+  end
+
+  def starts_at
+    return @starts_at if defined?(@starts_at)
+
+    length = PERIODS.fetch(period)
+    @starts_at = latest_taken_at && length ? latest_taken_at - length : nil
+  end
+
+  def prices
+    return [] unless latest_taken_at
+
+    @prices ||= PricePoint.find_by_sql([ <<~SQL, binds ])
+      SELECT taken_at, false AS daily, min_price, p25_price, median_price, p75_price, quantity
+      FROM price_points
+      WHERE auction_house_id = :house AND item_id = :item AND variant = :variant
+        AND taken_at >= :from
+      UNION ALL
+      SELECT (day + time '12:00') AT TIME ZONE 'UTC', true, min_price, p25_price, median_price,
+             p75_price, quantity
+      FROM price_points_daily
+      WHERE auction_house_id = :house AND item_id = :item AND variant = :variant
+        AND day >= (:from)::date
+      ORDER BY 1
+    SQL
+  end
+
+  # Every bucket of the period, including the ones without a sale.
+  def sales
+    return [] unless latest_taken_at
+
+    @sales ||= begin
+      rows = sales_rows.index_by { |row| row.bucket.to_i }
+      sales_bucket_starts(rows).map do |starts_at|
+        row = rows[starts_at.to_i]
+        SalesBucket.new(
+          starts_at: starts_at.in_time_zone,
+          hourly: hourly_sales?,
+          sold_quantity: row&.sold_quantity.to_i,
+          sold_value: row&.sold_value.to_i,
+          sold_auctions: row&.sold_auctions.to_i
+        )
+      end
+    end
+  end
+
+  # The point of the latest snapshot, or nil if the variant is no longer on sale.
+  def current
+    return unless latest_taken_at
+
+    return @current if defined?(@current)
+
+    @current = points.find_by(taken_at: latest_taken_at)
+  end
+
+  # The point from a day before the latest snapshot, give or take.
+  def reference
+    return unless latest_taken_at
+
+    return @reference if defined?(@reference)
+
+    day_ago = latest_taken_at - 1.day
+    @reference = points
+      .where(taken_at: (day_ago - MarketListing::REFERENCE_TOLERANCE)..day_ago)
+      .order(taken_at: :desc)
+      .first
+  end
+
+  def sold_last_day
+    return 0 unless latest_taken_at
+
+    @sold_last_day ||= SalesPoint
+      .where(auction_house_id: @market.id, item_id: @item.id, variant: variant)
+      .where("taken_at > ?", latest_taken_at - 1.day)
+      .sum(:sold_quantity)
+  end
+
+  private
+
+  def points
+    PricePoint.where(auction_house_id: @market.id, item_id: @item.id, variant: variant)
+  end
+
+  def hourly_sales? = period == HOURLY_SALES_PERIOD
+
+  def binds
+    { house: @market.id, item: @item.id, variant: variant, from: starts_at || EARLIEST }
+  end
+
+  # Whole days only: a first column covering half a day would look like a drop.
+  def sales_binds
+    return binds.merge(unit: "hour") if hourly_sales?
+
+    binds.merge(unit: "day", from: (starts_at || EARLIEST).utc.beginning_of_day)
+  end
+
+  def sales_rows
+    SalesPoint.find_by_sql([ <<~SQL, sales_binds ])
+      SELECT bucket,
+             sum(sold_quantity)::bigint AS sold_quantity,
+             least(sum(sold_value), 9223372036854775807)::bigint AS sold_value,
+             sum(sold_auctions)::bigint AS sold_auctions
+      FROM (
+        SELECT date_trunc(:unit, taken_at, 'UTC') AS bucket, sold_quantity, sold_value, sold_auctions
+        FROM sales_points
+        WHERE auction_house_id = :house AND item_id = :item AND variant = :variant
+          AND taken_at >= :from
+        UNION ALL
+        SELECT day::timestamp AT TIME ZONE 'UTC', sold_quantity, sold_value, sold_auctions
+        FROM sales_points_daily
+        WHERE auction_house_id = :house AND item_id = :item AND variant = :variant
+          AND day >= (:from)::date
+      ) AS sold
+      GROUP BY bucket
+      ORDER BY bucket
+    SQL
+  end
+
+  def sales_bucket_starts(rows)
+    first = starts_at&.utc || rows.keys.min&.then { |seconds| Time.at(seconds).utc }
+    return [] unless first
+
+    step = hourly_sales? ? 1.hour : 1.day
+    current = hourly_sales? ? first.beginning_of_hour : first.beginning_of_day
+    starts = []
+    while current <= latest_taken_at
+      starts << current
+      current += step
+    end
+    starts
+  end
+end

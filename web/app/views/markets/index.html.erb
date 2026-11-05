@@ -1,0 +1,37 @@
+<h1>Hôtels des ventes</h1>
+
+<% if @any_market %>
+  <%= form_with url: root_path, method: :get, class: "search", role: "search" do |form| %>
+    <%= form.label :q, "Chercher un royaume", class: "search-label" %>
+    <%= form.search_field :q, value: @query %>
+    <%= form.submit "Chercher", name: nil %>
+  <% end %>
+
+  <% @markets.group_by(&:region).each do |region, markets| %>
+    <section>
+      <h2><%= region.upcase %></h2>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th scope="col">Marché</th>
+              <th scope="col" class="number">Annonces</th>
+              <th scope="col" class="number">Dernier relevé</th>
+            </tr>
+          </thead>
+          <tbody>
+            <% markets.each do |market| %>
+              <tr>
+                <td><%= link_to market.display_name, market_path(market) %></td>
+                <td class="number"><%= market.latest_auction_count ? number_with_delimiter(market.latest_auction_count) : "—" %></td>
+                <td class="number"><%= market.latest_taken_at ? snapshot_age(market.latest_taken_at) : "jamais" %></td>
+              </tr>
+            <% end %>
+          </tbody>
+        </table>
+      </div>
+    </section>
+  <% end %>
+<% else %>
+  <p class="empty">Aucun marché pour l'instant : le fetcher n'a encore rien récupéré.</p>
+<% end %>

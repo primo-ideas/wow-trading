@@ -1,0 +1,2 @@
+class SalesPoint < ApplicationRecord
+end
