@@ -274,6 +274,22 @@ class MarketListingTest < ActiveSupport::TestCase
     assert_equal [ 50.0 ], page.sparkline(pet)
   end
 
+  test "adds up a realm's markets, each with its own curves" do
+    commodities = create_commodities
+    create_snapshot(commodities, NOW)
+    create_item(2770, name: "Copper Ore")
+    create_price(@market, 2589, NOW, median: 1_000)
+    create_price(commodities, 2770, NOW, median: 50)
+    create_price(commodities, 2589, NOW - 1.hour, median: 7)
+
+    page = MarketListing.new([ @market, commodities ], sort: "name")
+
+    assert_equal [ 2770, 2589 ], page.rows.map(&:item_id)
+    assert_equal 2, page.total
+    assert_equal [ 50.0 ], page.sparkline(page.rows.first)
+    assert_equal [ 1_000.0 ], page.sparkline(page.rows.last)
+  end
+
   private
 
   def stub_const(owner, name, value)

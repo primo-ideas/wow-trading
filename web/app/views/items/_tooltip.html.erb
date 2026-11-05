@@ -1,0 +1,50 @@
+<%# The card shown on hovering a link to a product: what it is, and where its price stands on the realm. %>
+<div class="item-tip">
+  <div class="item-tip-head">
+    <%= product_icon(@product.icon_url, @product.quality) %>
+    <strong class="<%= quality_class(@product.quality) %>"><%= @product.name %></strong>
+  </div>
+  <% kind = [ quality_label(@product.quality), (@product.pet? ? "Battle pet" : @item.item_class), (@item.item_subclass unless @product.pet?) ].compact_blank.uniq %>
+  <% if @item.level.to_i.positive? && !@product.pet? %>
+    <% kind << "Level #{@item.level}" %>
+  <% end %>
+  <% if kind.any? %>
+    <p class="item-tip-kind"><%= kind.join(" · ") %></p>
+  <% end %>
+
+  <% if @listed %>
+    <dl class="item-tip-facts">
+      <div>
+        <dt><%= @listed.several_variants? ? "Cheapest variant" : "Cheapest" %></dt>
+        <dd><%= money(@listed.min_price) %></dd>
+      </div>
+      <div>
+        <dt>Median</dt>
+        <dd><%= money(@listed.median_price) %></dd>
+      </div>
+      <% if @listed.change %>
+        <div>
+          <dt>Over 24h</dt>
+          <dd><%= change_pill(@listed.change) %></dd>
+        </div>
+      <% end %>
+      <% if @listed.usual_price %>
+        <div>
+          <dt>Usually</dt>
+          <dd><%= money(@listed.usual_price) %></dd>
+        </div>
+      <% end %>
+      <div>
+        <dt>For sale</dt>
+        <dd><%= number_with_delimiter(@listed.quantity) %></dd>
+      </div>
+      <div>
+        <dt>Sold, 24h</dt>
+        <dd><%= @listed.sold_quantity ? number_with_delimiter(@listed.sold_quantity) : "—" %></dd>
+      </div>
+    </dl>
+    <p class="item-tip-where">On <%= current_realm.name %>, at the latest snapshot.</p>
+  <% else %>
+    <p class="item-tip-where">Not for sale on <%= current_realm.name %> right now.</p>
+  <% end %>
+</div>

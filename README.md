@@ -155,12 +155,16 @@ This remains an estimate. A cancelled auction looks like a sale, which inflates 
 
 ## Site
 
-- `/`: the last realm visited, or failing that the list of markets (`/markets`).
-- `/markets/:id`: the biggest rises and falls over 24 hours and the most traded, then everything for sale at the latest snapshot, to sort and filter by name, id, category or quality, ignoring accents and case.
-- `/markets/:id/deals`: what sells well below its usual price, with what is left after reselling at that price. See [Deals](#deals).
-- `/markets/:id/items/:id`: price curves, estimated sales and quantity for sale, over 24 hours, 7, 30 or 90 days, or the whole history. Each chart has its data table. The page also gives the usual cheapest price, the same product on the other markets of the region, and a CSV download of the prices (`.csv`, in copper and UTC).
-- `/search`: searches the player's realm and the commodities of its region. The header of each page offers suggestions as you type, with `/` or Ctrl-K to get there.
-- `/watchlist`: the products a reader follows, at their latest prices. It lives in a cookie: the site has no accounts, and never writes to its database.
+A player picks their realm, then searches for an item. Markets never show: each page of a realm adds up the auction house it shares with its connected realms and the commodities of its region, and an item's page is on whichever of the two trades it.
+
+- `/`: the last realm visited, or failing that the realm picker (`/realms`), which suggests realms as you type, without regard for accents. A realm can be picked once its own market, or the commodities of its region, are followed.
+- `/:region/:realm`, for example `/eu/hyjal`: a search box, the biggest rises and falls over 24 hours and the most traded, then everything for sale at the latest snapshot, to sort and filter by name, id, category or quality, ignoring accents and case.
+- `/:region/:realm/deals`: what sells well below its usual price, with what is left after reselling at that price. See [Deals](#deals).
+- `/:region/:realm/items/:id`: price curves, estimated sales and quantity for sale, over 24 hours, 7, 30 or 90 days, or the whole history. Each chart has its data table. The page also gives the usual cheapest price, the same product on the other realms of the region, and a CSV download of the prices (`.csv`, in copper and UTC).
+- `/:region/:realm/search`: searches the realm. The header of each page offers suggestions as you type, with `/` or Ctrl-K to get there.
+- `/watchlist`: the products a reader follows, at their latest prices on their realm. It lives in a cookie: the site has no accounts, and never writes to its database.
+
+Hovering a product shows its card: what it is, and its prices on the realm. Hovering the label of a figure says what it means. The addresses of the time the site was organised by market (`/markets/:id`, `/search`) lead to the same pages on the player's realm.
 
 ### Deals
 

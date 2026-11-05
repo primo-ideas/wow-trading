@@ -8,17 +8,33 @@ class ProductAcrossMarketsTest < ActiveSupport::TestCase
     [ @hyjal, @archimonde, @american ].each { |market| create_snapshot(market, NOW) }
   end
 
-  def across(item_id = 1, series = "") = ProductAcrossMarkets.new(@hyjal, item_id, series)
+  def across(item_id = 1, series = "", realm: nil) = ProductAcrossMarkets.new(@hyjal, item_id, series, realm: realm)
 
   test "compares the markets of a region, the cheapest first" do
     create_price(@hyjal, 1, NOW, min: 500)
     create_price(@archimonde, 1, NOW, min: 100)
     create_price(@american, 1, NOW, min: 1)
 
-    assert_equal [ "Archimonde", "Hyjal" ], across.rows.map(&:market_name)
+    assert_equal [ @archimonde.id, @hyjal.id ], across.rows.map(&:auction_house_id)
     assert across.comparable?
     assert across.current?(across.rows.last)
     assert_not across.current?(across.rows.first)
+  end
+
+  test "names each market by its realms, the reader's own first" do
+    create_realm(@archimonde, name: "Archimonde")
+    create_realm(@hyjal, name: "Hyjal")
+    create_realm(@hyjal, name: "Elune")
+    create_price(@hyjal, 1, NOW, min: 500)
+    create_price(@archimonde, 1, NOW, min: 100)
+    archimonde_row, hyjal_row = across.rows
+
+    assert_equal [ "Archimonde" ], across.realms_of(archimonde_row).map(&:name)
+    assert_equal [ "Elune", "Hyjal" ], across.realms_of(hyjal_row).map(&:name)
+
+    mine = across(realm: Realm.find_by_route("eu", "hyjal"))
+    assert_equal [ "Hyjal", "Elune" ], mine.realms_of(mine.rows.last).map(&:name)
+    assert_equal [ "Archimonde" ], mine.realms_of(mine.rows.first).map(&:name)
   end
 
   test "has nothing to compare on a single market" do

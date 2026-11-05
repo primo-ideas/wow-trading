@@ -1,56 +1,53 @@
 class ApplicationController < ActionController::Base
-  helper_method :tracked_markets, :remembered_market, :remembered_realm_of, :search_markets, :watchlist
+  helper_method :current_realm, :watchlist
 
   # The fetcher creates the schema on its first run, which may not have happened yet.
   rescue_from ActiveRecord::StatementInvalid do |error|
     raise error unless error.cause.is_a?(PG::UndefinedTable)
 
-    # The header lists markets, from a table that is missing as well.
-    @tracked_markets = []
+    # The header shows the realm, from a table that is missing as well.
+    @current_realm = nil
     render "errors/not_ready", status: :service_unavailable
   end
 
   private
 
   def tracked_markets
-    @tracked_markets ||= AuctionHouse.tracked.listing_order.to_a
+    @tracked_markets ||= AuctionHouse.tracked.to_a
   end
 
-  # A player thinks in terms of their realm: browsing the commodities of its region
-  # does not change it, so the realm is what gets remembered.
-  def remembered_market
-    return @remembered_market if defined?(@remembered_market)
+  # The realm of the page, or else the one the player picked last.
+  def current_realm
+    return @current_realm if defined?(@current_realm)
 
-    @remembered_market = tracked_markets.find { |market| market.id == cookies[:market].to_i }
+    @current_realm = remembered_realm
   end
 
-  def remember(market)
-    return if market.commodities? && remembered_market && remembered_market.region == market.region
+  def remembered_realm
+    return @remembered_realm if defined?(@remembered_realm)
 
-    cookies[:market] = cookie_options.merge(value: market.id)
-    @remembered_market = tracked_markets.find { |tracked| tracked.id == market.id }
+    region, slug = cookies[:realm].to_s.split("/", 2)
+    @remembered_realm = slug.present? ? Realm.find_by_route(region, slug) : nil
+  end
+
+  # The realm in the address, which becomes the player's: the next visit starts there.
+  def load_realm
+    @current_realm = find_realm
+    unless remembered_realm == @current_realm
+      cookies[:realm] = cookie_options.merge(value: "#{@current_realm.region}/#{@current_realm.slug}")
+    end
+  end
+
+  def find_realm
+    Realm.find_by_route(params[:region], params[:realm]) or raise ActiveRecord::RecordNotFound
   end
 
   def watchlist
-    @watchlist ||= Watchlist.new(cookies[:watchlist])
+    @watchlist ||= Watchlist.new(cookies[:watched], legacy: cookies[:watchlist])
   end
 
   # Other sites may share the domain: this one's cookies stay within its path.
   def cookie_options
     { expires: 1.year, same_site: :lax, path: request.script_name.presence || "/", secure: request.ssl? }
-  end
-
-  def remembered_realm_of(region)
-    remembered_market if remembered_market&.region == region && !remembered_market.commodities?
-  end
-
-  # Where a search looks: the player's market and the commodities of its region.
-  def search_markets
-    return tracked_markets.first(10) unless remembered_market
-
-    tracked_markets.select do |market|
-      market.id == remembered_market.id ||
-        (market.commodities? && market.region == remembered_market.region)
-    end
   end
 end

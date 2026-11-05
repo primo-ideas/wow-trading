@@ -1,4 +1,4 @@
-# What sells well below its usual price on a market, measured on the cheapest listing:
+# What sells well below its usual price on a realm's markets, measured on the cheapest listing:
 # see `usual_min_price` in the fetcher's migrations for why not on asking prices or sales.
 class MarketDeals
   LIMIT = 100
@@ -25,9 +25,9 @@ class MarketDeals
 
   attr_reader :sort
 
-  def initialize(market, sort: nil)
-    @market = market
-    @query = MarketQuery.new(market)
+  def initialize(markets, sort: nil)
+    @ids = Array(markets).map(&:id)
+    @query = MarketQuery.new(markets)
     @sort = SORTS.key?(sort) ? sort : DEFAULT_SORT
   end
 
@@ -44,15 +44,16 @@ class MarketDeals
   # Whether any product has enough history for this list to mean something.
   def ready?
     ListedProduct
-      .where(auction_house_id: @market.id)
+      .where(auction_house_id: @ids)
       .where(usual_min_points: ListedProduct::MIN_USUAL_POINTS..)
       .exists?
   end
 
-  # How far along the market is, for a page that has to wait.
+  # How far along the furthest market is, for a page that has to wait.
   def snapshots_so_far
     return 0 unless latest_taken_at
 
-    Snapshot.where(auction_house_id: @market.id, taken_at: (latest_taken_at - 3.days)..).count
+    Snapshot.where(auction_house_id: @ids, taken_at: (latest_taken_at - 3.days)..)
+      .group(:auction_house_id).count.values.max.to_i
   end
 end

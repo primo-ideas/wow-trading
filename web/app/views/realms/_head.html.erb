@@ -1,0 +1,17 @@
+<div class="page-head">
+  <div>
+    <p class="eyebrow"><%= realm.region_name %></p>
+    <h1 class="realm-title"><%= realm.name %></h1>
+  </div>
+  <%= freshness(realm.latest_taken_at) %>
+</div>
+
+<% unless realm.own_market_followed? %>
+  <p class="note">Only reagents, consumables and other goods traded across the whole region are followed for this realm so far: gear and pets will appear once its own auction house is.</p>
+<% end %>
+
+<nav class="tabs" aria-label="<%= realm.name %>">
+  <% { overview: [ "Overview", realm_home_path(realm) ], deals: [ "Deals", realm_deals_path(realm.region, realm.slug) ] }.each do |key, (label, path)| %>
+    <%= link_to label, path, class: ("is-selected" if section == key), "aria-current": ("page" if section == key) %>
+  <% end %>
+</nav>

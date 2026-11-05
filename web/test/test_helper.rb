@@ -39,6 +39,15 @@ module MarketData
     AuctionHouse.find(id)
   end
 
+  def create_realm(market, name: "Hyjal", slug: name.parameterize)
+    Realm.insert_all!([ { region: market.region, slug: slug, name: name, auction_house_id: market.id } ])
+    Realm.find_by_route(market.region, slug)
+  end
+
+  def create_commodities(region: "eu")
+    create_market(region: region, connected_realm_id: nil, name: "Commodities")
+  end
+
   def create_item(id, name: "Linen Cloth", quality: "COMMON", item_class: "Tradeskill", item_subclass: "Cloth", icon_url: nil)
     Item.insert_all!([ { id: id, name: name, quality: quality, item_class: item_class, item_subclass: item_subclass, icon_url: icon_url } ])
     Item.find(id)

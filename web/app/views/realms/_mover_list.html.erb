@@ -6,7 +6,8 @@
     <ol class="mover-list">
       <% products.each do |product| %>
         <li>
-          <%= link_to market_item_path(market, product.item_id, variant: product.variant_param), class: "mover" do %>
+          <%= link_to item_on_realm_path(realm, product.item_id, variant: product.variant_param), class: "mover",
+                data: { tooltip: item_tooltip_path(realm, product.item_id, product.variant_param) } do %>
             <%= product_icon(product.icon_url, product.quality) %>
             <span class="mover-name <%= quality_class(product.quality) %>"><%= product.display_name %></span>
             <span class="mover-figure">

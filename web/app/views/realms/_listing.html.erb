@@ -9,28 +9,28 @@
     <%= listing.filtered? ? "found" : "for sale" %>
   </span>
   <% if listing.filtered? %>
-    <%= link_to "Clear filters", market_path(market), class: "link-quiet", data: { turbo_frame: "_top" } %>
+    <%= link_to "Clear filters", realm_home_path(realm), class: "link-quiet", data: { turbo_frame: "_top" } %>
   <% end %>
 </div>
 
 <% if listing.rows.empty? %>
   <div class="empty-state">
     <h2>No results</h2>
-    <p>Nothing on this market matches these filters. Try another name or category.</p>
+    <p>Nothing for sale on <%= realm.name %> matches these filters. Try another name or category.</p>
   </div>
 <% else %>
   <div class="table-wrap">
     <table class="listing">
       <thead>
         <tr>
-          <th scope="col"><%= sort_link "Product", "name", listing %></th>
-          <th scope="col" class="col-wide">7 days</th>
-          <th scope="col" class="number"><%= sort_link "Median", "price", listing %></th>
-          <th scope="col" class="number col-medium"><%= sort_link "Minimum", "min", listing %></th>
-          <th scope="col" class="number"><%= sort_link "24h", "change", listing %></th>
-          <th scope="col" class="number col-medium"><%= sort_link "For sale", "quantity", listing %></th>
-          <th scope="col" class="number col-wide"><%= sort_link "Sold, 24h", "sold", listing %></th>
-          <th scope="col" class="number col-wide"><%= sort_link "Value, 24h", "value", listing %></th>
+          <th scope="col"><%= sort_link "Product", "name", listing, realm %></th>
+          <th scope="col" class="col-wide"><span data-tip="<%= term(:sparkline) %>" tabindex="0">7 days</span></th>
+          <th scope="col" class="number"><%= sort_link "Median", "price", listing, realm, tip: term(:median) %></th>
+          <th scope="col" class="number col-medium"><%= sort_link "Minimum", "min", listing, realm, tip: term(:minimum) %></th>
+          <th scope="col" class="number"><%= sort_link "24h", "change", listing, realm, tip: term(:change) %></th>
+          <th scope="col" class="number col-medium"><%= sort_link "For sale", "quantity", listing, realm, tip: term(:for_sale) %></th>
+          <th scope="col" class="number col-wide"><%= sort_link "Sold, 24h", "sold", listing, realm, tip: term(:sold) %></th>
+          <th scope="col" class="number col-wide"><%= sort_link "Value, 24h", "value", listing, realm, tip: term(:value) %></th>
         </tr>
       </thead>
       <tbody>
@@ -43,8 +43,7 @@
               <div class="product-cell">
                 <%= product_icon(row.icon_url, row.quality) %>
                 <span class="product-label">
-                  <%= link_to row.display_name, market_item_path(market, row.item_id, variant: row.variant_param),
-                        class: "product-link #{quality_class(row.quality)}", data: { turbo_frame: "_top" } %>
+                  <%= product_link row, realm, data: { turbo_frame: "_top" } %>
                   <% if row.several_variants? %>
                     <small class="muted"><%= row.variant_count %> variants</small>
                   <% end %>
@@ -66,11 +65,11 @@
 
   <nav class="pagination" aria-label="Pages">
     <% if listing.previous_page? %>
-      <%= link_to "← Previous", listing_page_path(market, listing, listing.page - 1) %>
+      <%= link_to "← Previous", listing_page_path(realm, listing, listing.page - 1) %>
     <% end %>
     <span class="muted">Page <%= number_with_delimiter(listing.page) %> of <%= number_with_delimiter(listing.page_count) %></span>
     <% if listing.next_page? %>
-      <%= link_to "Next →", listing_page_path(market, listing, listing.page + 1) %>
+      <%= link_to "Next →", listing_page_path(realm, listing, listing.page + 1) %>
     <% end %>
   </nav>
 

@@ -1,16 +1,16 @@
-<% content_for :title, "Deals · #{@market.display_name}" %>
+<% content_for :title, "Deals · #{current_realm.name}" %>
 
-<%= render "markets/head", market: @market, taken_at: @deals.latest_taken_at, section: :deals %>
+<%= render "realms/head", realm: current_realm, section: :deals %>
 
 <% if !@deals.ready? %>
   <div class="empty-state">
     <h2>Not enough history yet</h2>
-    <p>A deal is a product whose cheapest listing is well below its usual cheapest price, and knowing what is usual takes about a day of snapshots. This market has <%= @deals.snapshots_so_far %> of the <%= ListedProduct::MIN_USUAL_POINTS %> it needs.</p>
+    <p>A deal is a product whose cheapest listing is well below its usual cheapest price, and knowing what is usual takes about a day of snapshots. <%= current_realm.name %> has <%= @deals.snapshots_so_far %> of the <%= ListedProduct::MIN_USUAL_POINTS %> it needs.</p>
   </div>
 <% elsif @deals.rows.empty? %>
   <div class="empty-state">
     <h2>No deals right now</h2>
-    <p>Nothing on this market is far enough below its usual price. Listings change with every snapshot.</p>
+    <p>Nothing on <%= current_realm.name %> is far enough below its usual price. Listings change with every snapshot.</p>
   </div>
 <% else %>
   <div class="listing-summary">
@@ -25,12 +25,12 @@
       <thead>
         <tr>
           <th scope="col">Product</th>
-          <th scope="col" class="number">Cheapest now</th>
-          <th scope="col" class="number col-medium">Usually</th>
-          <th scope="col" class="number"><%= deals_sort_link "Below usual", "discount", @deals %></th>
-          <th scope="col" class="number"><%= deals_sort_link "Resale profit", "profit", @deals %></th>
-          <th scope="col" class="number col-medium">For sale</th>
-          <th scope="col" class="number col-wide"><%= deals_sort_link "Sold, 24h", "sold", @deals %></th>
+          <th scope="col" class="number"><span data-tip="<%= term(:minimum) %>" tabindex="0">Cheapest now</span></th>
+          <th scope="col" class="number col-medium"><span data-tip="<%= term(:usual) %>" tabindex="0">Usually</span></th>
+          <th scope="col" class="number"><%= deals_sort_link "Below usual", "discount", @deals, current_realm, tip: term(:below_usual) %></th>
+          <th scope="col" class="number"><%= deals_sort_link "Resale profit", "profit", @deals, current_realm, tip: term(:resale) %></th>
+          <th scope="col" class="number col-medium"><span data-tip="<%= term(:for_sale) %>" tabindex="0">For sale</span></th>
+          <th scope="col" class="number col-wide"><%= deals_sort_link "Sold, 24h", "sold", @deals, current_realm, tip: term(:sold) %></th>
         </tr>
       </thead>
       <tbody>
@@ -43,8 +43,7 @@
               <div class="product-cell">
                 <%= product_icon(row.icon_url, row.quality) %>
                 <span class="product-label">
-                  <%= link_to row.display_name, market_item_path(@market, row.item_id, variant: row.variant_param),
-                        class: "product-link #{quality_class(row.quality)}" %>
+                  <%= product_link row, current_realm %>
                 </span>
               </div>
             </td>

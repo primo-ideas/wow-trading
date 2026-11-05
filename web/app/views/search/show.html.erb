@@ -1,11 +1,11 @@
-<% content_for :title, "Search" %>
+<% content_for :title, "Search · #{current_realm.name}" %>
 
 <h1>Search</h1>
 <p class="lead">
-  <% if @search.query.present? %>Results for “<%= @search.query %>” on<% else %>On<% end %>
-  <%= search_markets.map(&:display_name).to_sentence %>.
+  <% if @search.query.present? %>Results for “<%= @search.query %>” on<% else %>What is for sale on<% end %>
+  <%= current_realm.name %>.
 </p>
 
 <div class="panel">
-  <%= render "search/results", search: @search %>
+  <%= render "search/results", search: @search, realm: current_realm %>
 </div>

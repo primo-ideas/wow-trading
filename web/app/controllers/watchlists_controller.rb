@@ -1,12 +1,12 @@
 class WatchlistsController < ApplicationController
   def show
-    products = watchlist.products.group_by(&:auction_house_id)
-    @groups = tracked_markets.filter_map { |market| [ market, products[market.id] ] if products.key?(market.id) }
+    @products = current_realm ? watchlist.products(current_realm.markets) : []
   end
 
   def update
-    watchlist.toggle(params[:market_id], params[:item_id], params[:series])
-    cookies[:watchlist] = cookie_options.merge(value: watchlist.to_cookie)
+    watchlist.toggle(params[:item_id], params[:series])
+    cookies[:watched] = cookie_options.merge(value: watchlist.to_cookie)
+    cookies.delete(:watchlist, path: cookie_options[:path])
     redirect_back_or_to watchlist_path, status: :see_other
   end
 end

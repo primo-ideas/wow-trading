@@ -1,8 +1,9 @@
 /*
  * A night-sky ground, on which item colors read as they do in the game, with gold as
  * the only accent: this is a market, and gold is its unit.
- * Layout: scanned rather than read. A sticky header to search and change realm from
- * anywhere, what stands out at the top, then a dense table under one row of filters.
+ * Layout: scanned rather than read. A player picks their realm once, then searches from
+ * a sticky header anywhere: what stands out at the top of a realm, then a dense table
+ * under one row of filters.
  */
 
 @font-face {
@@ -404,11 +405,6 @@ small {
   box-shadow: 0 12px 32px rgba(0, 0, 0, 0.5);
 }
 
-.menu-filter {
-  flex: none;
-  width: 100%;
-}
-
 .menu-note {
   padding: 4px 8px;
   color: var(--ink-3);
@@ -521,13 +517,60 @@ small {
   font-weight: 500;
 }
 
-.result-market {
+.result-kind {
   max-width: 150px;
   overflow: hidden;
   color: var(--ink-3);
   font-size: 0.75rem;
   white-space: nowrap;
   text-overflow: ellipsis;
+}
+
+.result mark {
+  background: none;
+  color: var(--gold);
+}
+
+.realm-result {
+  grid-template-columns: 34px minmax(0, 1fr) auto;
+}
+
+.realm-result .region {
+  justify-self: start;
+}
+
+/* The search of a realm's own page: the first thing to do there. */
+
+.page-search {
+  position: relative;
+  max-width: 720px;
+}
+
+.search-large input {
+  width: 100%;
+  height: 50px;
+  padding-left: 16px;
+  padding-right: 44px;
+  border-color: var(--line-strong);
+  font-size: 1.0625rem;
+}
+
+.search-large kbd {
+  position: absolute;
+  top: 15px;
+  right: 14px;
+  padding: 0 6px;
+  border: 1px solid var(--line-strong);
+  border-radius: 4px;
+  color: var(--ink-3);
+  font: inherit;
+  font-size: 0.75rem;
+  line-height: 1.5;
+  pointer-events: none;
+}
+
+.search-large input:focus ~ kbd {
+  display: none;
 }
 
 .result-price small {
@@ -600,8 +643,12 @@ select:focus {
   gap: 12px 24px;
 }
 
-.market-title {
+.realm-title {
   overflow-wrap: anywhere;
+}
+
+.section-title {
+  margin-top: 8px;
 }
 
 .freshness {
@@ -663,19 +710,15 @@ select:focus {
   font-weight: 600;
 }
 
-.watch-group,
 .across-markets {
   display: flex;
   flex-direction: column;
   gap: 10px;
 }
 
-.watch-group h2 a {
-  text-decoration: none;
-}
-
-.watch-group h2 a:hover {
-  color: var(--gold);
+.connected {
+  margin-left: 4px;
+  cursor: help;
 }
 
 .watch-form {
@@ -772,51 +815,221 @@ select:focus {
   font-size: 2.75rem;
 }
 
-.market-group {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-
-.market-group h2 {
-  color: var(--ink-3);
-  letter-spacing: 0.06em;
-}
-
-.market-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+.hero-picker {
+  align-items: center;
   gap: 12px;
+  padding: 48px 0 16px;
+  text-align: center;
 }
 
-.market-card {
+.hero-picker .lead {
+  max-width: 620px;
+}
+
+.realm-picker {
   display: flex;
   flex-direction: column;
-  gap: 6px;
-  height: 100%;
-  padding: 16px;
+  align-items: stretch;
+  gap: 8px;
+  width: 100%;
+  max-width: 520px;
+  margin-top: 16px;
+  text-align: left;
+}
+
+.picker-label {
+  color: var(--ink-2);
+  font-weight: 500;
+}
+
+.picker-box {
+  position: relative;
+}
+
+.picker-box input {
+  width: 100%;
+  height: 52px;
+  padding-left: 16px;
+  border-color: var(--line-strong);
+  font-size: 1.125rem;
+}
+
+.picker-current {
+  color: var(--ink-3);
+  font-size: 0.8125rem;
+}
+
+.picker-current a {
+  text-decoration: none;
+}
+
+.picker-current a:hover .realm-name {
+  color: var(--gold);
+}
+
+.realm-directory {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  margin-top: 8px;
+}
+
+.realm-directory > summary {
+  align-self: center;
+  color: var(--ink-2);
+  cursor: pointer;
+}
+
+.realm-directory > summary:hover {
+  color: var(--gold);
+}
+
+.realm-directory[open] > summary {
+  margin-bottom: 8px;
+}
+
+.realm-region {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 20px;
+}
+
+.realm-region h2 {
+  color: var(--ink-3);
+  font-size: 0.875rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.realm-list {
+  columns: 200px;
+  column-gap: 16px;
+}
+
+.realm-list a {
+  display: block;
+  padding: 3px 0;
+  color: var(--ink-2);
+  text-decoration: none;
+  break-inside: avoid;
+}
+
+.realm-list a:hover {
+  color: var(--gold);
+}
+
+/* Header: the player's realm, which leads back to the picker. */
+
+.realm-button {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  max-width: 260px;
+  height: 38px;
+  padding: 0 12px;
   border: 1px solid var(--line);
-  border-radius: var(--radius);
+  border-radius: 8px;
   background: var(--surface);
   text-decoration: none;
-  transition: border-color 0.12s, background 0.12s;
+  white-space: nowrap;
 }
 
-.market-card:hover {
-  border-color: var(--gold);
+.realm-button .realm-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.realm-button::after {
+  content: "";
+  flex: none;
+  width: 7px;
+  height: 7px;
+  margin: -3px 2px 0 2px;
+  border-right: 1.5px solid var(--ink-3);
+  border-bottom: 1.5px solid var(--ink-3);
+  transform: rotate(45deg);
+}
+
+.realm-button:hover {
+  border-color: var(--line-strong);
   background: var(--raised);
 }
 
-.market-card-name {
-  font-family: var(--font-display);
-  font-size: 1.25rem;
-  line-height: 1.25;
-  overflow-wrap: anywhere;
+/* Tooltips: a line on the labels of figures, a card on products. */
+
+[data-tip]:not(a, button) {
+  cursor: help;
+  text-decoration: underline dotted var(--line-strong);
+  text-underline-offset: 3px;
 }
 
-.market-card-meta {
-  color: var(--ink-2);
+.tip {
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: 50;
+  max-width: 280px;
+  padding: 7px 10px;
+  border: 1px solid var(--line-strong);
+  border-radius: 8px;
+  background: var(--raised);
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.55);
+  color: var(--ink);
   font-size: 0.8125rem;
+  line-height: 1.45;
+  pointer-events: none;
+}
+
+.tip-card {
+  width: 280px;
+  max-width: calc(100vw - 20px);
+  padding: 12px 14px;
+  border-color: color-mix(in srgb, var(--gold) 35%, var(--line-strong));
+  background: color-mix(in srgb, var(--raised) 92%, black);
+}
+
+.item-tip {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.item-tip-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 0.9375rem;
+  line-height: 1.3;
+}
+
+.item-tip-kind {
+  color: var(--ink-3);
+}
+
+.item-tip-facts {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px 12px;
+  margin: 0;
+  padding-top: 8px;
+  border-top: 1px solid var(--line);
+}
+
+.item-tip-facts dt {
+  color: var(--ink-3);
+  font-size: 0.75rem;
+}
+
+.item-tip-facts dd {
+  margin: 0;
+  font-variant-numeric: tabular-nums;
+}
+
+.item-tip-where {
+  color: var(--ink-3);
+  font-size: 0.75rem;
 }
 
 /* What stands out */
@@ -1637,9 +1850,22 @@ tr:hover .product-link {
     padding: 10px 16px;
   }
 
-  .switcher {
+  .switcher,
+  .realm-button {
     flex: 1;
     max-width: none;
+  }
+
+  .realm-button {
+    justify-content: flex-start;
+  }
+
+  .realm-button::after {
+    margin-left: auto;
+  }
+
+  .hero-picker {
+    padding-top: 24px;
   }
 
   .switcher summary {
@@ -1652,7 +1878,8 @@ tr:hover .product-link {
   }
 
   .site-search kbd,
-  .result-market,
+  .search-large kbd,
+  .result-kind,
   .col-medium {
     display: none;
   }

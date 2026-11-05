@@ -18,7 +18,7 @@ class ItemSearch
     return [] unless searchable?
 
     @results ||= ListedProduct.find_by_sql([ <<~SQL, houses: @markets.map(&:id), query: TextSearch.pattern(query), prefix: "#{TextSearch.escape(query)}%", limit: @limit ])
-      SELECT listed.*, #{ListedProduct::LABELS}
+      SELECT listed.*, #{ListedProduct::LABELS}, items.item_class, items.item_subclass
       #{ListedProduct::FROM_WITH_LABELS}
       WHERE listed.auction_house_id IN (:houses) AND #{TextSearch.condition(ListedProduct::SEARCH_NAME)}
       ORDER BY #{TextSearch.condition(ListedProduct::SEARCH_NAME, bind: ":prefix")} DESC,
@@ -26,6 +26,4 @@ class ItemSearch
       LIMIT :limit
     SQL
   end
-
-  def market_of(result) = @markets.find { |market| market.id == result.auction_house_id }
 end

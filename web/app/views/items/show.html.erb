@@ -1,7 +1,7 @@
-<% content_for :title, "#{@product.name} · #{@market.display_name}" %>
+<% content_for :title, "#{@product.name} · #{current_realm.name}" %>
 
 <nav class="breadcrumb" aria-label="Breadcrumb">
-  <%= link_to "#{@market.region.upcase} · #{short_market_name(@market)}", market_path(@market) %>
+  <%= link_to current_realm.name, realm_home_path(current_realm) %>
 </nav>
 
 <header class="product-head">
@@ -20,7 +20,7 @@
   </div>
   <div class="product-head-side">
     <%= freshness(@history.latest_taken_at) %>
-    <%= watch_button(@market.id, @item.id, @product.series) %>
+    <%= watch_button(@item.id, @product.series) %>
   </div>
 </header>
 
@@ -29,7 +29,7 @@
     <nav class="segmented" aria-label="Period">
       <% ItemHistory::PERIODS.each_key do |period| %>
         <%= link_to period,
-              market_item_path(@market, @item, variant: @variant.presence, period: period),
+              item_on_realm_path(current_realm, @item.id, variant: @variant.presence, period: period),
               class: ("is-selected" if period == @history.period),
               "aria-current": ("true" if period == @history.period) %>
       <% end %>
@@ -45,7 +45,7 @@
           <ul class="menu-list">
             <% @variants.each do |option| %>
               <li>
-                <%= link_to market_item_path(@market, @item, variant: option.variant, period: @history.period),
+                <%= link_to item_on_realm_path(current_realm, @item.id, variant: option.variant, period: @history.period),
                       class: ("is-selected" if option.variant == @variant) do %>
                   <span><%= variant_label(option.variant) || "No variant" %></span>
                   <span class="menu-figure"><%= money(option.min_price) %> · <%= number_with_delimiter(option.quantity) %></span>
@@ -57,14 +57,14 @@
       </details>
     <% end %>
 
-    <%= link_to "Download CSV", market_item_path(@market, @item, variant: @variant.presence, period: @history.period, format: :csv),
+    <%= link_to "Download CSV", item_on_realm_path(current_realm, @item.id, variant: @variant.presence, period: @history.period, format: :csv),
           class: "link-quiet csv-link", data: { turbo: false } %>
   </div>
 
   <% if @history.prices.empty? %>
     <div class="empty-state">
       <h2>Nothing in this period</h2>
-      <p>This item was not for sale on this market during this period. Try a longer one.</p>
+      <p>This item was not for sale on <%= current_realm.name %> during this period. Try a longer one.</p>
     </div>
   <% else %>
     <% current = @history.current %>
@@ -74,7 +74,7 @@
 
     <section class="summary" aria-label="Summary">
       <div class="summary-main">
-        <p class="summary-label">Median price</p>
+        <p class="summary-label"><span data-tip="<%= term(:median) %>" tabindex="0">Median price</span></p>
         <p class="summary-price"><%= money(current&.median_price) %></p>
         <p class="summary-changes">
           <span><%= change_pill(change_between(current&.median_price, @history.reference&.median_price)) %> <span class="muted">over 24h</span></span>
@@ -84,27 +84,27 @@
       </div>
       <dl class="summary-facts">
         <div>
-          <dt>Minimum price</dt>
+          <dt data-tip="<%= term(:minimum) %>" tabindex="0">Minimum price</dt>
           <dd><%= money(current&.min_price) %></dd>
         </div>
         <div>
           <dt>For sale</dt>
-          <dd><%= number_with_delimiter(current&.quantity.to_i) %> <small class="muted"><%= number_with_delimiter(current&.auction_count.to_i) %> listings</small></dd>
+          <dd><%= number_with_delimiter(current&.quantity.to_i) %> <small class="muted" data-tip="<%= term(:listings) %>"><%= number_with_delimiter(current&.auction_count.to_i) %> listings</small></dd>
         </div>
         <div>
-          <dt>Sold over 24h <small class="muted">estimate</small></dt>
+          <dt data-tip="<%= term(:sold) %>" tabindex="0">Sold over 24h <small class="muted">estimate</small></dt>
           <dd><%= number_with_delimiter(@history.sold_last_day) %></dd>
         </div>
         <div>
-          <dt>Value sold over 24h <small class="muted">estimate</small></dt>
+          <dt data-tip="<%= term(:value) %>" tabindex="0">Value sold over 24h <small class="muted">estimate</small></dt>
           <dd><%= money(@history.sold_value_last_day) %></dd>
         </div>
         <div>
-          <dt>Usual minimum <small class="muted">3 days</small></dt>
+          <dt data-tip="<%= term(:usual) %>" tabindex="0">Usual minimum <small class="muted">3 days</small></dt>
           <dd><%= money(@listed&.usual_price) %></dd>
         </div>
         <div>
-          <dt>Resale at usual minimum <small class="muted">after <%= number_to_percentage(Flip::AUCTION_HOUSE_CUT * 100, precision: 0) %> cut</small></dt>
+          <dt data-tip="<%= term(:resale) %>" tabindex="0">Resale at usual minimum <small class="muted">after <%= number_to_percentage(Flip::AUCTION_HOUSE_CUT * 100, precision: 0) %> cut</small></dt>
           <dd><%= @listed&.resale_profit&.positive? ? money(@listed.resale_profit) : "—" %></dd>
         </div>
       </dl>

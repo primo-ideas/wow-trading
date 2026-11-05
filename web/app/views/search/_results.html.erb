@@ -1,16 +1,16 @@
 <% if !search.searchable? %>
   <p class="search-hint">Type at least <%= ItemSearch::MIN_LENGTH %> letters.</p>
 <% elsif search.results.empty? %>
-  <p class="search-hint">Nothing for sale matches “<%= search.query %>”.</p>
+  <p class="search-hint">Nothing for sale on <%= realm.name %> matches “<%= search.query %>”.</p>
 <% else %>
   <ul class="result-list">
     <% search.results.each do |result| %>
-      <% market = search.market_of(result) %>
       <li>
-        <%= link_to market_item_path(market, result.item_id, variant: result.variant_param), class: "result", role: "option" do %>
+        <%= link_to item_on_realm_path(realm, result.item_id, variant: result.variant_param), class: "result", role: "option",
+              data: { tooltip: item_tooltip_path(realm, result.item_id, result.variant_param) } do %>
           <%= product_icon(result.icon_url, result.quality) %>
           <span class="result-name <%= quality_class(result.quality) %>"><%= result.display_name %></span>
-          <span class="result-market"><%= short_market_name(market) %></span>
+          <span class="result-kind"><%= result.variant_param ? "Battle pet" : (result.item_subclass.presence || result.item_class) %></span>
           <span class="result-price"><% if result.several_variants? %><small>from</small> <% end %><%= money(result.min_price) %></span>
         <% end %>
       </li>

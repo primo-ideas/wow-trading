@@ -1,4 +1,4 @@
-# A page of what is on sale on a market, as filtered and sorted by the reader.
+# A page of what is on sale on a realm's markets, as filtered and sorted by the reader.
 class MarketListing
   PAGE_SIZE = 50
   DEFAULT_SORT = "value"
@@ -17,9 +17,8 @@ class MarketListing
 
   attr_reader :sort, :page, :query, :item_class, :quality
 
-  def initialize(market, query: nil, item_class: nil, quality: nil, sort: nil, dir: nil, page: nil)
-    @market_query = MarketQuery.new(market)
-    @market = market
+  def initialize(markets, query: nil, item_class: nil, quality: nil, sort: nil, dir: nil, page: nil)
+    @market_query = MarketQuery.new(markets)
     @query = query.to_s.delete("\0").strip
     @item_class = item_class.to_s.delete("\0").presence
     @quality = quality.to_s.delete("\0").presence
@@ -61,7 +60,7 @@ class MarketListing
   private
 
   def sparklines
-    @sparklines ||= Sparklines.new(@market, rows, latest_taken_at)
+    @sparklines ||= Sparklines.new(rows, latest_taken_at)
   end
 
   def filter

@@ -23,12 +23,13 @@ class ItemSearchTest < ActiveSupport::TestCase
     assert_equal [ 3 ], results("ECLAIR").map(&:item_id)
   end
 
-  test "tells on which market a result is" do
-    create_price(@commodities, 1, NOW)
+  test "tells what kind of item a result is" do
+    create_item(4, name: "Copper Bar", item_class: "Tradeskill", item_subclass: "Metal & Stone")
+    create_price(@commodities, 4, NOW)
 
-    search = ItemSearch.new("copper", [ @realm, @commodities ])
+    result = results("copper bar").first
 
-    assert_equal @commodities, search.market_of(search.results.first)
+    assert_equal [ "Tradeskill", "Metal & Stone" ], [ result.item_class, result.item_subclass ]
   end
 
   test "leaves out what is not on sale, or on another market" do

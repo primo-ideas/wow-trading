@@ -1,0 +1,71 @@
+<% content_for :title, "Choose your realm" %>
+
+<section class="hero hero-picker">
+  <% if @item %>
+    <h1>Choose your realm</h1>
+    <p class="lead">To see what <strong><%= Product.new(@item, @variant.to_s).name %></strong> sells for there. It will be remembered for your next visits.</p>
+  <% else %>
+    <h1>Auction house prices, realm by realm</h1>
+    <p class="lead">Pick your realm, then look up any item: its price, its trend and how fast it sells. Your realm will be remembered for your next visits.</p>
+  <% end %>
+
+  <% if @realms.any? %>
+    <%= form_with url: realms_path, method: :get, class: "realm-picker", role: "search", data: { realm_picker: true, turbo: false } do |form| %>
+      <% if @item %>
+        <%= hidden_field_tag :item, @item.id, id: nil %>
+        <%= hidden_field_tag :variant, @variant, id: nil if @variant %>
+      <% end %>
+      <%= form.label :q, "Your realm", class: "picker-label", for: "realm-picker-input" %>
+      <div class="picker-box">
+        <%= form.search_field :q, value: @query, id: "realm-picker-input", autofocus: true, autocomplete: "off", spellcheck: false,
+              placeholder: "Type its name, like Hyjal",
+              role: "combobox", "aria-autocomplete": "list", "aria-controls": "realm-suggestions", "aria-expanded": "false" %>
+        <ul id="realm-suggestions" class="search-results" role="listbox" aria-label="Realms" hidden></ul>
+      </div>
+      <noscript><%= form.submit "Find", name: nil %></noscript>
+      <% if current_realm %>
+        <p class="picker-current">
+          Or go back to
+          <%= link_to (@item ? item_on_realm_path(current_realm, @item.id, variant: @variant) : realm_home_path(current_realm)) do %>
+            <%= realm_label(current_realm) %>
+          <% end %>
+        </p>
+      <% end %>
+    <% end %>
+  <% end %>
+</section>
+
+<% if @realms.empty? %>
+  <div class="empty-state">
+    <h2>No realms yet</h2>
+    <p>The fetcher has not collected anything yet. Realms will appear here after its first cycle.</p>
+  </div>
+<% else %>
+  <%# Every realm is in the page, for the suggestions to pick from: a search without script hides the others. %>
+  <% matching = @query.present? ? @realms.select { |realm| realm_matches?(realm, @query) } : @realms %>
+  <details class="realm-directory" data-realm-directory <%= "open" if @query.present? %>>
+    <summary>
+      <% if @query.present? %>
+        <%= pluralize(matching.size, "realm") %> matching “<%= @query %>”
+      <% else %>
+        Browse all <%= @realms.size %> realms
+      <% end %>
+    </summary>
+    <% if matching.empty? %>
+      <p class="muted">No realm by that name. Check the spelling, or browse them all.</p>
+    <% end %>
+    <% @realms.group_by(&:region).each do |region, realms| %>
+      <section class="realm-region" <%= "hidden" if (realms & matching).empty? %>>
+        <h2><%= realms.first.region_name %></h2>
+        <ul class="realm-list">
+          <% realms.each do |realm| %>
+            <li <%= "hidden" unless matching.include?(realm) %>>
+              <%= link_to realm.name, (@item ? item_on_realm_path(realm, @item.id, variant: @variant) : realm_home_path(realm)),
+                    data: { realm: realm.name, region: realm.region } %>
+            </li>
+          <% end %>
+        </ul>
+      </section>
+    <% end %>
+  </details>
+<% end %>

@@ -1,60 +1,60 @@
 <% content_for :title, "Watchlist" %>
 
 <h1>Watchlist</h1>
-<p class="lead">The products you follow, at their latest prices. This list lives in a cookie of this browser: there is no account, and it does not follow you to another device.</p>
+<p class="lead">The products you follow, at their latest prices<%= " on #{current_realm.name}" if current_realm %>. This list lives in a cookie of this browser: there is no account, and it does not follow you to another device.</p>
 
 <% if watchlist.empty? %>
   <div class="empty-state">
     <h2>Nothing here yet</h2>
     <p>Open a product and press <strong>☆ Watch</strong> to find it here.</p>
   </div>
+<% elsif current_realm.nil? %>
+  <div class="empty-state">
+    <h2>Which realm?</h2>
+    <p>Prices depend on the realm. <%= link_to "Choose yours", realms_path %> to see those of the <%= pluralize(watchlist.size, "product") %> you follow.</p>
+  </div>
 <% else %>
-  <% @groups.each do |market, products| %>
-    <section class="watch-group">
-      <h2><%= link_to "#{market.region.upcase} · #{market.display_name}", market_path(market) %></h2>
-      <% sparklines = Sparklines.new(market, products, market.latest_taken_at) %>
-      <% price_units = money_units(products.map(&:median_price)) %>
-      <% min_units = money_units(products.map(&:min_price)) %>
-      <div class="table-wrap">
-        <table class="listing">
-          <thead>
+  <% if @products.any? %>
+    <% sparklines = Sparklines.new(@products, current_realm.latest_taken_at) %>
+    <% price_units = money_units(@products.map(&:median_price)) %>
+    <% min_units = money_units(@products.map(&:min_price)) %>
+    <div class="table-wrap">
+      <table class="listing">
+        <thead>
+          <tr>
+            <th scope="col">Product</th>
+            <th scope="col" class="col-wide"><span data-tip="<%= term(:sparkline) %>" tabindex="0">7 days</span></th>
+            <th scope="col" class="number col-medium"><span data-tip="<%= term(:median) %>" tabindex="0">Median</span></th>
+            <th scope="col" class="number"><span data-tip="<%= term(:minimum) %>" tabindex="0">Minimum</span></th>
+            <th scope="col" class="number"><span data-tip="<%= term(:change) %>" tabindex="0">24h</span></th>
+            <th scope="col" class="number col-medium"><span data-tip="<%= term(:for_sale) %>" tabindex="0">For sale</span></th>
+            <th scope="col" class="number"><span class="visually-hidden">Watching</span></th>
+          </tr>
+        </thead>
+        <tbody>
+          <% @products.each do |row| %>
             <tr>
-              <th scope="col">Product</th>
-              <th scope="col" class="col-wide">7 days</th>
-              <th scope="col" class="number col-medium">Median</th>
-              <th scope="col" class="number">Minimum</th>
-              <th scope="col" class="number">24h</th>
-              <th scope="col" class="number col-medium">For sale</th>
-              <th scope="col" class="number"><span class="visually-hidden">Watching</span></th>
+              <td>
+                <div class="product-cell">
+                  <%= product_icon(row.icon_url, row.quality) %>
+                  <span class="product-label"><%= product_link row, current_realm %></span>
+                </div>
+              </td>
+              <td class="col-wide"><%= sparkline(sparklines.for(row)) %></td>
+              <td class="number col-medium"><%= money_cell(row.median_price, units: price_units) %></td>
+              <td class="number"><%= money_cell(row.min_price, units: min_units) %></td>
+              <td class="number"><%= change_pill(row.change) %></td>
+              <td class="number col-medium"><%= number_with_delimiter(row.quantity) %></td>
+              <td class="number"><%= watch_button(row.item_id, row.series, compact: true) %></td>
             </tr>
-          </thead>
-          <tbody>
-            <% products.each do |row| %>
-              <tr>
-                <td>
-                  <div class="product-cell">
-                    <%= product_icon(row.icon_url, row.quality) %>
-                    <span class="product-label">
-                      <%= link_to row.display_name, market_item_path(market, row.item_id, variant: row.variant_param),
-                            class: "product-link #{quality_class(row.quality)}" %>
-                    </span>
-                  </div>
-                </td>
-                <td class="col-wide"><%= sparkline(sparklines.for(row)) %></td>
-                <td class="number col-medium"><%= money_cell(row.median_price, units: price_units) %></td>
-                <td class="number"><%= money_cell(row.min_price, units: min_units) %></td>
-                <td class="number"><%= change_pill(row.change) %></td>
-                <td class="number col-medium"><%= number_with_delimiter(row.quantity) %></td>
-                <td class="number"><%= watch_button(row.auction_house_id, row.item_id, row.series, compact: true) %></td>
-              </tr>
-            <% end %>
-          </tbody>
-        </table>
-      </div>
-    </section>
+          <% end %>
+        </tbody>
+      </table>
+    </div>
   <% end %>
 
-  <% if watchlist.not_on_sale.positive? %>
-    <p class="note"><%= pluralize(watchlist.not_on_sale, "product") %> you follow <%= watchlist.not_on_sale == 1 ? "has" : "have" %> no listing right now, and will come back here once listed again.</p>
+  <% missing = watchlist.not_on_sale(current_realm.markets) %>
+  <% if missing.positive? %>
+    <p class="note"><%= pluralize(missing, "product") %> you follow <%= missing == 1 ? "has" : "have" %> no listing on <%= current_realm.name %> right now, and will come back here once listed again.</p>
   <% end %>
 <% end %>

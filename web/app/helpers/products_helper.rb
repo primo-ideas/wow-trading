@@ -37,13 +37,14 @@ module ProductsHelper
   end
 
   # Adds a product to the reader's watchlist, or takes it off.
-  def watch_button(market_id, item_id, series, compact: false)
-    watching = watchlist.include?(market_id, item_id, series)
+  def watch_button(item_id, series, compact: false)
+    watching = watchlist.include?(item_id, series)
     label = watching ? "★ Watching" : "☆ Watch"
     button_to (compact ? label.first : label), watchlist_path, method: :patch,
-      params: { market_id: market_id, item_id: item_id, series: series },
+      params: { item_id: item_id, series: series },
       class: [ "watch-button", ("is-watching" if watching) ], form_class: "watch-form",
-      title: watching ? "Remove from your watchlist" : "Add to your watchlist",
+      "aria-label": (watching ? "Remove from your watchlist" : "Add to your watchlist"),
+      data: { tip: watching ? "Remove from your watchlist" : "Add to your watchlist: it follows you from realm to realm" },
       "aria-pressed": watching, form: { data: { turbo_frame: "_top" } }
   end
 
@@ -68,7 +69,7 @@ module ProductsHelper
 
     state = Time.current - time > Freshness::STALE_AFTER ? "stale" : "fresh"
     label = state == "stale" ? "Stale data: " : "Updated "
-    tag.span(class: "freshness #{state}", title: l(time, format: "%b %-d, %Y at %H:%M")) do
+    tag.span(class: "freshness #{state}", tabindex: 0, data: { tip: "Latest snapshot: #{l(time, format: "%b %-d, %Y at %H:%M")}" }) do
       safe_join([ tag.i("", class: "freshness-dot", "aria-hidden": "true"), "#{label}#{time_ago_in_words(time)} ago" ])
     end
   end

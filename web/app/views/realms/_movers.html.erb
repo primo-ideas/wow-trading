@@ -1,8 +1,8 @@
 <section class="movers" aria-label="What moved over 24 hours">
   <% if movers.compared? %>
-    <%= render "markets/mover_list", title: "Biggest rises", products: movers.risers, market: market, show: :change,
+    <%= render "realms/mover_list", title: "Biggest rises", products: movers.risers, realm: realm, show: :change,
           empty: "No notable rise over 24h." %>
-    <%= render "markets/mover_list", title: "Biggest falls", products: movers.fallers, market: market, show: :change,
+    <%= render "realms/mover_list", title: "Biggest falls", products: movers.fallers, realm: realm, show: :change,
           empty: "No notable fall over 24h." %>
   <% else %>
     <div class="mover-card mover-note">
@@ -10,6 +10,6 @@
       <p>Rises and falls will appear here after a day of snapshots. Comparing prices takes at least two snapshots about 24 hours apart.</p>
     </div>
   <% end %>
-  <%= render "markets/mover_list", title: "Most traded", products: movers.most_traded, market: market, show: :value,
+  <%= render "realms/mover_list", title: "Most traded", products: movers.most_traded, realm: realm, show: :value,
         empty: "Sales will appear with the next snapshot." %>
 </section>

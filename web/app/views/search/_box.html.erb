@@ -1,0 +1,12 @@
+<%# An item search on a realm, with suggestions as you type. Without script, it leads to a page of results. %>
+<% large = local_assigns[:large] %>
+<%= form_with url: realm_search_path(realm.region, realm.slug), method: :get, class: [ css_class, ("search-large" if large) ],
+      role: "search", data: { search: true, turbo: false } do |form| %>
+  <%= form.label :q, "Search for an item on #{realm.name}", class: "visually-hidden", for: "#{id}-input" %>
+  <%= form.search_field :q, value: (params[:q].to_s.first(100) if controller_name == "search"), id: "#{id}-input",
+        placeholder: large ? "Search for an item, a pet, a reagent…" : "Search for an item or a pet",
+        autocomplete: "off", autofocus: large, spellcheck: false,
+        role: "combobox", "aria-autocomplete": "list", "aria-controls": "#{id}-results", "aria-expanded": "false" %>
+  <kbd aria-hidden="true">/</kbd>
+  <div id="<%= id %>-results" class="search-results" role="listbox" aria-label="Suggestions" hidden></div>
+<% end %>

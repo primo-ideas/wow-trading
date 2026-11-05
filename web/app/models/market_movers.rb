@@ -1,4 +1,4 @@
-# What stands out on a market over the last day.
+# What stands out on a realm's markets over the last day.
 class MarketMovers
   LIMIT = 5
   # Below this, one listing added or removed swings the median: that is noise, not news.
@@ -7,8 +7,8 @@ class MarketMovers
   # "Item #244630, +45%" tells a reader nothing. The listing below still has it.
   NAMED = "#{ListedProduct::NAME} IS NOT NULL".freeze
 
-  def initialize(market)
-    @query = MarketQuery.new(market)
+  def initialize(markets)
+    @query = MarketQuery.new(markets)
   end
 
   def compared? = @query.compared?
