@@ -5,9 +5,12 @@
 #
 #   sudo ./deploy/install.sh                                # site on 127.0.0.1:3000
 #   sudo DOMAIN=trading.example.com ./deploy/install.sh     # site on https://trading.example.com
+#   sudo DOMAIN=example.com BASE_PATH=/wow-trading ./deploy/install.sh     # next to other sites
 #
-# Options, as environment variables:
+# Options, as environment variables. DOMAIN and BASE_PATH are kept for the next runs:
 #   DOMAIN        Public domain of the site. Its DNS must already point to this server.
+#   BASE_PATH     Path of the site on that domain, when it shares it. Needed if Apache
+#                 already runs here: it then gets a route to the site, and nothing else changes.
 #   SCOPE         What to fetch on a first install, by default eu/commodities.
 #   POLL_MINUTES  Minutes between two cycles, by default 5.
 #
@@ -17,6 +20,7 @@ set -euo pipefail
 SCOPE="${SCOPE:-eu/commodities}"
 POLL_MINUTES="${POLL_MINUTES:-5}"
 DOMAIN="${DOMAIN:-}"
+BASE_PATH="${BASE_PATH:-}"
 
 REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 APP=/opt/wow-trading
@@ -30,8 +34,14 @@ DATABASE=wow_trading
 # Below this much memory and without swap, compiling can get killed.
 SWAP_BELOW_MB=4000
 SWAP_FILE=/swapfile
-SWAP_SIZE=2G
 MAX_BUILD_JOBS=4
+# A disk too small for the defaults: less swap and write-ahead log, a shorter hourly
+# history, and no compiler left behind once the fetcher is built.
+if [ "$(df --output=size -BG / | tail -n 1 | tr -dc 0-9)" -lt 16 ]; then
+  SMALL_DISK=1 SWAP_SIZE=1G MAX_WAL_SIZE=256MB RETENTION_DAYS=7
+else
+  SMALL_DISK="" SWAP_SIZE=2G MAX_WAL_SIZE=1GB RETENTION_DAYS=14
+fi
 
 step() { printf '\n==> %s\n' "$*"; }
 die() { printf 'error: %s\n' "$*" >&2; exit 1; }
@@ -42,6 +52,7 @@ case "$POLL_MINUTES" in
   ''|*[!0-9]*) die "POLL_MINUTES must be a number of minutes" ;;
 esac
 [ "$POLL_MINUTES" -ge 1 ] && [ "$POLL_MINUTES" -le 59 ] || die "POLL_MINUTES must be between 1 and 59"
+[[ "$BASE_PATH" =~ ^(/[A-Za-z0-9_-]+)*$ ]] || die "BASE_PATH must look like /wow-trading"
 
 . /etc/os-release
 [ "${VERSION_ID:-}" = "26.04" ] || printf 'warning: written for Ubuntu 26.04, this is %s\n' "${PRETTY_NAME:-unknown}" >&2
@@ -62,9 +73,6 @@ ensure_packages() {
     build-essential cmake pkg-config git curl openssl ca-certificates tzdata \
     postgresql rustup \
     ruby ruby-dev libpq-dev libyaml-dev zlib1g-dev
-  if [ -n "$DOMAIN" ]; then
-    apt-get install -y -qq caddy
-  fi
 }
 
 ensure_swap() {
@@ -108,6 +116,13 @@ ensure_role() {
 }
 
 value_of() { sed -n "s/^$1=//p" "$2" | tail -n 1; }
+
+# What an earlier run was given, so that `git pull && ./deploy/install.sh` keeps it.
+load_saved_settings() {
+  [ -f "$SITE_ENV" ] || return 0
+  [ -n "$DOMAIN" ] || DOMAIN="$(value_of SITE_HOST "$SITE_ENV")"
+  [ -n "$BASE_PATH" ] || BASE_PATH="$(value_of RAILS_RELATIVE_URL_ROOT "$SITE_ENV")"
+}
 
 # An install from when the project was called wow-market. Installing next to it would
 # start from an empty database while its services kept the port and the history. Its
@@ -185,7 +200,7 @@ SQL
 # Written by deploy/install.sh.
 shared_buffers = ${shared_buffers}MB
 effective_cache_size = $(( memory_mb / 2 ))MB
-max_wal_size = 1GB
+max_wal_size = $MAX_WAL_SIZE
 synchronous_commit = off
 CONF
   systemctl restart postgresql
@@ -203,6 +218,7 @@ BLIZZARD_CLIENT_SECRET=
 # Each market takes around 1 GB of disk: see deploy/README.md before adding many.
 WOW_SCOPE=$SCOPE
 WOW_LOCALE=en_US
+WOW_HOURLY_RETENTION_DAYS=$RETENTION_DAYS
 
 DATABASE_URL=postgres://$OWNER_ROLE:$owner_password@127.0.0.1:5432/$DATABASE
 ENV
@@ -218,9 +234,12 @@ ENV
   fi
 
   # Set on every run, as a domain can be added later.
-  sed -i '/^SITE_HOST=/d' "$SITE_ENV"
+  sed -i '/^SITE_HOST=/d;/^RAILS_RELATIVE_URL_ROOT=/d' "$SITE_ENV"
   if [ -n "$DOMAIN" ]; then
     echo "SITE_HOST=$DOMAIN" >> "$SITE_ENV"
+  fi
+  if [ -n "$BASE_PATH" ]; then
+    echo "RAILS_RELATIVE_URL_ROOT=$BASE_PATH" >> "$SITE_ENV"
   fi
 }
 
@@ -234,9 +253,21 @@ build_jobs() {
   printf '%s' "$jobs"
 }
 
+fetcher_sources_hash() {
+  (cd "$REPO" && find fetcher Cargo.toml Cargo.lock rust-toolchain.toml -type f -print0 |
+    sort -z | xargs -0 sha256sum | sha256sum | cut -d' ' -f1)
+}
+
 build_fetcher() {
+  local hash toolchain
+  hash="$(fetcher_sources_hash)"
+  # Without a change there, an update of the site need not take a compilation.
+  if [ -x "$APP/bin/wow-trading-fetcher" ] && [ "$(cat "$APP/bin/.sources-hash" 2>/dev/null)" = "$hash" ]; then
+    step "The fetcher has not changed: not building it again"
+    return
+  fi
+
   step "Building the fetcher (several minutes the first time, more on a small server)"
-  local toolchain
   toolchain="$(sed -n 's/^channel = "\(.*\)"$/\1/p' "$REPO/rust-toolchain.toml")"
   [ -n "$toolchain" ] || die "no toolchain named in rust-toolchain.toml"
 
@@ -244,6 +275,15 @@ build_fetcher() {
   # `rustup run` rather than `cargo`, which the rustup package may not put on the PATH.
   as_builder rustup run "$toolchain" cargo build --release --locked --jobs "$(build_jobs)" -p wow-trading-fetcher
   install -m 755 "$REPO/target/release/wow-trading-fetcher" "$APP/bin/wow-trading-fetcher"
+  printf '%s' "$hash" > "$APP/bin/.sources-hash"
+
+  # All of this comes back at the next build, which then only costs time.
+  if [ -n "$SMALL_DISK" ]; then
+    step "Removing the compiler and its output, as this disk is small"
+    rm -rf "$REPO/target" "$BUILD_HOME/.cargo/registry"
+    as_builder rustup toolchain uninstall "$toolchain"
+    apt-get clean
+  fi
 }
 
 build_site() {
@@ -270,8 +310,9 @@ build_site() {
     bundle config set --local path vendor/bundle
     bundle install --quiet --jobs "$(build_jobs)"
     # Compiling assets touches neither the database nor the secret, but Rails wants both set.
+    # The path matters here: compiled stylesheets refer to their fonts by full path.
     RAILS_ENV=production SECRET_KEY_BASE_DUMMY=1 DATABASE_URL=postgres://unused/unused \
-      bundle exec rails assets:precompile
+      RAILS_RELATIVE_URL_ROOT="$BASE_PATH" bundle exec rails assets:precompile
   )
 }
 
@@ -285,9 +326,44 @@ install_units() {
   systemctl daemon-reload
 }
 
-configure_caddy() {
+configure_web_server() {
   [ -n "$DOMAIN" ] || return 0
+  if systemctl is-active --quiet apache2; then
+    configure_apache
+  else
+    configure_caddy
+  fi
+}
+
+# Apache already answers here: Caddy could not take its ports, and the domain may serve
+# other things. One path of the domain goes to the site, and nothing else changes.
+configure_apache() {
+  [ -n "$BASE_PATH" ] || die "Apache runs on this server: give the site a path of its own with BASE_PATH, like /wow-trading"
+  apache2ctl -S 2>/dev/null | grep " $DOMAIN " >/dev/null || die "Apache has no virtual host for $DOMAIN, so no certificate to serve it with"
+
+  step "Configuring Apache for https://$DOMAIN$BASE_PATH"
+  a2enmod -q proxy proxy_http headers
+  cat > /etc/apache2/conf-available/wow-trading.conf <<APACHE
+# Written by deploy/install.sh.
+<Location "$BASE_PATH">
+	ProxyPreserveHost On
+	ProxyPass "http://127.0.0.1:3000$BASE_PATH"
+	ProxyPassReverse "http://127.0.0.1:3000$BASE_PATH"
+	RequestHeader set X-Forwarded-Proto "https"
+</Location>
+APACHE
+  a2enconf -q wow-trading
+  if ! apache2ctl configtest 2>/dev/null; then
+    a2disconf -q wow-trading
+    die "Apache refuses this configuration: it was disabled again, and Apache left running as it was"
+  fi
+  # New modules take a restart.
+  systemctl restart apache2
+}
+
+configure_caddy() {
   step "Configuring Caddy for $DOMAIN"
+  apt-get install -y -qq caddy
   local caddyfile=/etc/caddy/Caddyfile
   if [ -f "$caddyfile" ] && ! grep -q 'Written by deploy/install.sh' "$caddyfile"; then
     cp "$caddyfile" "$caddyfile.before-wow-trading"
@@ -344,11 +420,12 @@ TEXT
 
 ensure_packages
 rename_old_install
+load_saved_settings
 ensure_swap
 ensure_user
 ensure_database
 build_fetcher
 build_site
 install_units
-configure_caddy
+configure_web_server
 start_services

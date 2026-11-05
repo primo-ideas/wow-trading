@@ -32,6 +32,9 @@ module Web
     config.i18n.default_locale = :en
     config.i18n.available_locales = [ :en ]
 
+    # Other sites may share the domain: cookies stay within this one's path.
+    config.session_store :cookie_store, key: "_wow_trading_session", path: ENV["RAILS_RELATIVE_URL_ROOT"].presence || "/"
+
     # Don't generate system test files.
     config.generators.system_tests = nil
   end

@@ -5,12 +5,13 @@
     <meta name="viewport" content="width=device-width,initial-scale=1">
     <meta name="description" content="World of Warcraft auction house prices: trends and estimated sales, realm by realm.">
     <meta name="turbo-prefetch" content="false">
+    <meta name="turbo-root" content="<%= request.script_name.presence || "/" %>">
     <meta name="color-scheme" content="dark">
     <meta name="theme-color" content="#0c0f14">
     <%= csrf_meta_tags %>
     <%= csp_meta_tag %>
 
-    <link rel="icon" href="/icon.svg" type="image/svg+xml">
+    <link rel="icon" href="<%= root_path %>icon.svg" type="image/svg+xml">
 
     <%= stylesheet_link_tag :app, "data-turbo-track": "reload" %>
     <%= javascript_include_tag "turbo.min", type: "module", "data-turbo-track": "reload" %>

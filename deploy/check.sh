@@ -51,18 +51,26 @@ else
 fi
 
 echo "Site"
-if curl --silent --fail --max-time 10 --output /dev/null http://127.0.0.1:3000/up; then
-  ok "answers on 127.0.0.1:3000"
+base_path="$(sed -n 's/^RAILS_RELATIVE_URL_ROOT=//p' "$ETC/site.env" 2>/dev/null)"
+if curl --silent --fail --max-time 10 --output /dev/null "http://127.0.0.1:3000$base_path/up"; then
+  ok "answers on 127.0.0.1:3000$base_path"
 else
-  bad "does not answer on 127.0.0.1:3000"
+  bad "does not answer on 127.0.0.1:3000$base_path"
 fi
 site_host="$(sed -n 's/^SITE_HOST=//p' "$ETC/site.env" 2>/dev/null)"
 if [ -n "$site_host" ]; then
-  if curl --silent --fail --max-time 15 --output /dev/null "https://$site_host/up"; then
-    ok "answers on https://$site_host"
+  if curl --silent --fail --max-time 15 --output /dev/null "https://$site_host$base_path/up"; then
+    ok "answers on https://$site_host$base_path"
   else
-    bad "does not answer on https://$site_host: check its DNS, and that ports 80 and 443 are open"
+    bad "does not answer on https://$site_host$base_path: check its DNS, and that ports 80 and 443 are open"
   fi
+fi
+
+echo "Network"
+if curl --silent --max-time 10 --output /dev/null https://oauth.battle.net/; then
+  ok "Battle.net can be reached"
+else
+  bad "Battle.net cannot be reached: it has no IPv6 address, so an IPv6-only server needs an IPv4 one to fetch anything"
 fi
 
 echo "Data"

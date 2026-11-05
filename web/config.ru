@@ -2,5 +2,8 @@
 
 require_relative "config/environment"
 
-run Rails.application
+# Under a path of its own when it shares a domain with other sites: see deploy/README.md.
+map Rails.application.config.relative_url_root.presence || "/" do
+  run Rails.application
+end
 Rails.application.load_server
