@@ -52,7 +52,8 @@ fi
 
 echo "Site"
 base_path="$(sed -n 's/^RAILS_RELATIVE_URL_ROOT=//p' "$ETC/site.env" 2>/dev/null)"
-if curl --silent --fail --max-time 10 --output /dev/null "http://127.0.0.1:3000$base_path/up"; then
+# Right after an install, the site may still be starting: that takes a while on a small server.
+if curl --silent --fail --max-time 10 --retry 10 --retry-delay 3 --retry-connrefused --output /dev/null "http://127.0.0.1:3000$base_path/up"; then
   ok "answers on 127.0.0.1:3000$base_path"
 else
   bad "does not answer on 127.0.0.1:3000$base_path"
