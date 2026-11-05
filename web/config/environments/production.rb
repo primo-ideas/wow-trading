@@ -26,7 +26,10 @@ Rails.application.configure do
   # reached through an SSH tunnel, in plain HTTP on localhost.
   site_host = ENV["SITE_HOST"].presence
   config.assume_ssl = site_host.present?
-  config.force_ssl = site_host.present?
+  # Forcing SSL also tells browsers to use HTTPS on the whole domain and its subdomains for
+  # two years. On a path of a shared domain that is not this site's decision: what serves
+  # the domain already redirects to HTTPS, and the site only marks its own cookies secure.
+  config.force_ssl = site_host.present? && ENV["RAILS_RELATIVE_URL_ROOT"].blank?
 
   # Skip http-to-https redirect for the default health check endpoint.
   config.ssl_options = { redirect: { exclude: ->(request) { request.path_info == "/up" } } }

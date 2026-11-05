@@ -27,7 +27,7 @@ class ApplicationController < ActionController::Base
   def remember(market)
     return if market.commodities? && remembered_market && remembered_market.region == market.region
 
-    cookies[:market] = { value: market.id, expires: 1.year, same_site: :lax, path: cookie_path }
+    cookies[:market] = cookie_options.merge(value: market.id)
     @remembered_market = tracked_markets.find { |tracked| tracked.id == market.id }
   end
 
@@ -36,7 +36,9 @@ class ApplicationController < ActionController::Base
   end
 
   # Other sites may share the domain: this one's cookies stay within its path.
-  def cookie_path = request.script_name.presence || "/"
+  def cookie_options
+    { expires: 1.year, same_site: :lax, path: request.script_name.presence || "/", secure: request.ssl? }
+  end
 
   def remembered_realm_of(region)
     remembered_market if remembered_market&.region == region && !remembered_market.commodities?

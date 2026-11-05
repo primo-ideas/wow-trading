@@ -6,7 +6,7 @@ class WatchlistsController < ApplicationController
 
   def update
     watchlist.toggle(params[:market_id], params[:item_id], params[:series])
-    cookies[:watchlist] = { value: watchlist.to_cookie, expires: 1.year, same_site: :lax, path: cookie_path }
+    cookies[:watchlist] = cookie_options.merge(value: watchlist.to_cookie)
     redirect_back_or_to watchlist_path, status: :see_other
   end
 end
