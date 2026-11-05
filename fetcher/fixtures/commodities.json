@@ -1,0 +1,11 @@
+{
+  "_links": {
+    "self": { "href": "https://eu.api.blizzard.com/data/wow/auctions/commodities?namespace=dynamic-eu" }
+  },
+  "auctions": [
+    { "id": 1, "item": { "id": 190396 }, "quantity": 200, "unit_price": 1250000, "time_left": "SHORT" },
+    { "id": 2, "item": { "id": 190396 }, "quantity": 100, "unit_price": 1300000, "time_left": "LONG" },
+    { "id": 3, "item": { "id": 190396 }, "quantity": 1, "unit_price": 9999990000, "time_left": "VERY_LONG" },
+    { "id": 4, "item": { "id": 190395 }, "quantity": 5, "unit_price": 40000, "time_left": "MEDIUM" }
+  ]
+}

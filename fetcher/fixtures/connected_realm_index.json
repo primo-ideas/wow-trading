@@ -1,0 +1,9 @@
+{
+  "_links": {
+    "self": { "href": "https://eu.api.blizzard.com/data/wow/connected-realm/?namespace=dynamic-eu" }
+  },
+  "connected_realms": [
+    { "href": "https://eu.api.blizzard.com/data/wow/connected-realm/1390?namespace=dynamic-eu" },
+    { "href": "https://eu.api.blizzard.com/data/wow/connected-realm/1302?namespace=dynamic-eu" }
+  ]
+}

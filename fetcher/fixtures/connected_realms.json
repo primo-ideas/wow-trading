@@ -1,0 +1,58 @@
+[
+  {
+    "_links": { "self": { "href": "https://eu.api.blizzard.com/data/wow/connected-realm/1390?namespace=dynamic-eu" } },
+    "id": 1390,
+    "has_queue": false,
+    "status": { "type": "UP", "name": "En ligne" },
+    "population": { "type": "FULL", "name": "Complet" },
+    "realms": [
+      {
+        "id": 1390,
+        "region": { "name": "Europe", "id": 3 },
+        "connected_realm": { "href": "https://eu.api.blizzard.com/data/wow/connected-realm/1390?namespace=dynamic-eu" },
+        "name": "Hyjal",
+        "category": "Français",
+        "locale": "frFR",
+        "timezone": "Europe/Paris",
+        "type": { "type": "NORMAL", "name": "Normal" },
+        "is_tournament": false,
+        "slug": "hyjal"
+      }
+    ],
+    "auctions": { "href": "https://eu.api.blizzard.com/data/wow/connected-realm/1390/auctions?namespace=dynamic-eu" }
+  },
+  {
+    "_links": { "self": { "href": "https://eu.api.blizzard.com/data/wow/connected-realm/1302?namespace=dynamic-eu" } },
+    "id": 1302,
+    "has_queue": false,
+    "status": { "type": "UP", "name": "En ligne" },
+    "population": { "type": "HIGH", "name": "Élevée" },
+    "realms": [
+      {
+        "id": 1302,
+        "region": { "name": "Europe", "id": 3 },
+        "connected_realm": { "href": "https://eu.api.blizzard.com/data/wow/connected-realm/1302?namespace=dynamic-eu" },
+        "name": "Archimonde",
+        "category": "Français",
+        "locale": "frFR",
+        "timezone": "Europe/Paris",
+        "type": { "type": "NORMAL", "name": "Normal" },
+        "is_tournament": false,
+        "slug": "archimonde"
+      },
+      {
+        "id": 1621,
+        "region": { "name": "Europe", "id": 3 },
+        "connected_realm": { "href": "https://eu.api.blizzard.com/data/wow/connected-realm/1302?namespace=dynamic-eu" },
+        "name": "Naxxramas",
+        "category": "Français",
+        "locale": "frFR",
+        "timezone": "Europe/Paris",
+        "type": { "type": "NORMAL", "name": "Normal" },
+        "is_tournament": false,
+        "slug": "naxxramas"
+      }
+    ],
+    "auctions": { "href": "https://eu.api.blizzard.com/data/wow/connected-realm/1302/auctions?namespace=dynamic-eu" }
+  }
+]
