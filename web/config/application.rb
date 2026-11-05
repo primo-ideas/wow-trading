@@ -29,8 +29,8 @@ module Web
     config.autoload_lib(ignore: %w[assets tasks])
 
     config.time_zone = "Paris"
-    config.i18n.default_locale = :fr
-    config.i18n.available_locales = [ :fr ]
+    config.i18n.default_locale = :en
+    config.i18n.available_locales = [ :en ]
 
     # Don't generate system test files.
     config.generators.system_tests = nil

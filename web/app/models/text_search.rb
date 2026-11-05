@@ -1,4 +1,4 @@
-# Case and accent insensitive matching, so that "etoffe" finds "Étoffe": against
+# Case and accent insensitive matching, so that "eclair" finds "Éclair": against
 # `search_name`, which `items` and `pets` store without case or accents.
 module TextSearch
   ACCENTS = {

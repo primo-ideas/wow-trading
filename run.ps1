@@ -4,7 +4,7 @@
 Fetches the WoW auction data, starts the local site and opens it in the browser.
 
 .DESCRIPTION
-On first use, installs Postgres and Ruby in %LOCALAPPDATA%\wow-market, without
+On first use, installs Postgres and Ruby in %LOCALAPPDATA%\wow-trading, without
 admin rights and without touching the PATH or creating a service. Then starts
 Postgres, runs one fetch cycle, starts the site, opens the browser, and keeps
 fetching until Ctrl-C. Everything this script started is stopped when it exits.
@@ -54,7 +54,7 @@ param(
 $ErrorActionPreference = 'Stop'
 
 $Repo = $PSScriptRoot
-$Home_ = Join-Path $env:LOCALAPPDATA 'wow-market'
+$Home_ = Join-Path $env:LOCALAPPDATA 'wow-trading'
 $Downloads = Join-Path $Home_ 'downloads'
 $Logs = Join-Path $Home_ 'logs'
 $PgRoot = Join-Path $Home_ 'postgres'
@@ -65,8 +65,9 @@ $RubyRoot = Join-Path $Home_ 'ruby'
 $Web = Join-Path $Repo 'web'
 
 $PgPort = 54329
-$PgUser = 'wowmarket'
-$Database = 'wow_market'
+$PgUser = 'wowtrading'
+$Database = 'wow_trading'
+$BuildJobs = 4
 
 # The Ruby checksum comes from the winget manifest. EDB publishes none for this
 # archive: this one was recorded on the first download.
@@ -228,7 +229,7 @@ function Install-WebDependencies {
         & bundle check *> $null
         if ($LASTEXITCODE -ne 0) {
             Write-Step 'Installing the site dependencies (several minutes the first time)'
-            Invoke-Checked 'bundle' @('install', '--quiet')
+            Invoke-Checked 'bundle' @('install', '--quiet', '--jobs', "$BuildJobs")
         }
     }
     finally {
@@ -290,11 +291,11 @@ function Stop-IfRunning([Diagnostics.Process] $Process) {
 
 function Invoke-Tests {
     Write-Step 'Testing the fetcher'
-    New-DatabaseIfMissing 'wow_market_fetcher_test'
-    $env:DATABASE_URL = Get-DatabaseUrl 'wow_market_fetcher_test'
+    New-DatabaseIfMissing 'wow_trading_fetcher_test'
+    $env:DATABASE_URL = Get-DatabaseUrl 'wow_trading_fetcher_test'
     Push-Location $Repo
     try {
-        Invoke-Checked 'cargo' @('test', '--workspace')
+        Invoke-Checked 'cargo' @('test', '--workspace', '--jobs', "$BuildJobs", '--', "--test-threads=$BuildJobs")
     }
     finally {
         Pop-Location
@@ -302,8 +303,8 @@ function Invoke-Tests {
 
     Write-Step 'Testing the site'
     Install-WebDependencies
-    New-DatabaseIfMissing 'wow_market_site_test'
-    $env:DATABASE_URL = Get-DatabaseUrl 'wow_market_site_test'
+    New-DatabaseIfMissing 'wow_trading_site_test'
+    $env:DATABASE_URL = Get-DatabaseUrl 'wow_trading_site_test'
     Push-Location $Web
     try {
         Invoke-Checked 'ruby' @('bin/rails', 'test')
@@ -372,12 +373,12 @@ try {
     Write-Step 'Building the fetcher'
     Push-Location $Repo
     try {
-        Invoke-Checked 'cargo' @('build', '--release', '--quiet', '-p', 'wow-market-fetcher')
+        Invoke-Checked 'cargo' @('build', '--release', '--quiet', '--jobs', "$BuildJobs", '-p', 'wow-trading-fetcher')
     }
     finally {
         Pop-Location
     }
-    $fetcher = Join-Path $Repo 'target\release\wow-market-fetcher.exe'
+    $fetcher = Join-Path $Repo 'target\release\wow-trading-fetcher.exe'
     $fetcherArguments = $configArguments + $scopeArguments + $stubArguments
 
     Install-WebDependencies

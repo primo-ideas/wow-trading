@@ -6,12 +6,12 @@
 class ItemHistory
   PERIODS = {
     "24h" => 1.day,
-    "7j" => 7.days,
-    "30j" => 30.days,
-    "90j" => 90.days,
-    "tout" => nil
+    "7d" => 7.days,
+    "30d" => 30.days,
+    "90d" => 90.days,
+    "all" => nil
   }.freeze
-  DEFAULT_PERIOD = "7j"
+  DEFAULT_PERIOD = "7d"
   # Sales are spiky: per hour over a day, per day beyond that.
   HOURLY_SALES_PERIOD = "24h"
 

@@ -39,12 +39,12 @@ module MarketData
     AuctionHouse.find(id)
   end
 
-  def create_item(id, name: "Étoffe de lin", quality: "COMMON", item_class: "Artisanat", item_subclass: "Tissu", icon_url: nil)
+  def create_item(id, name: "Linen Cloth", quality: "COMMON", item_class: "Tradeskill", item_subclass: "Cloth", icon_url: nil)
     Item.insert_all!([ { id: id, name: name, quality: quality, item_class: item_class, item_subclass: item_subclass, icon_url: icon_url } ])
     Item.find(id)
   end
 
-  def create_pet(species_id, name: "Ecureuil mécanique", icon_url: "https://render.example/pet.jpg")
+  def create_pet(species_id, name: "Mechanical Squirrel", icon_url: "https://render.example/pet.jpg")
     Pet.insert_all!([ { species_id: species_id, name: name, icon_url: icon_url } ])
     Pet.find(species_id)
   end

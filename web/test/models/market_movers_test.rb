@@ -12,7 +12,7 @@ class MarketMoversTest < ActiveSupport::TestCase
   def movers = MarketMovers.new(@market)
 
   def price_move(item_id, before, now, auctions: ENOUGH)
-    create_item(item_id, name: "Objet nommé #{item_id}")
+    create_item(item_id, name: "Named item #{item_id}")
     create_unnamed_move(item_id, before, now, auctions: auctions)
   end
 
@@ -74,17 +74,17 @@ class MarketMoversTest < ActiveSupport::TestCase
   end
 
   test "a caged pet counts as named by its species" do
-    create_pet(39, name: "Ecureuil mécanique")
+    create_pet(39, name: "Mechanical Squirrel")
     create_price(@market, 82800, NOW - 1.day, median: 100, auctions: ENOUGH, variant: "pet:39")
     create_price(@market, 82800, NOW, median: 200, auctions: ENOUGH, variant: "pet:39")
 
-    assert_equal [ "Ecureuil mécanique" ], movers.risers.map(&:name)
+    assert_equal [ "Mechanical Squirrel" ], movers.risers.map(&:name)
   end
 
   test "without a day of history there is nothing to compare, but sales still show" do
-    market = create_market(connected_realm_id: 9, name: "Récent")
+    market = create_market(connected_realm_id: 9, name: "Recent")
     create_snapshot(market, NOW)
-    create_item(1, name: "Objet nommé")
+    create_item(1, name: "Named item")
     create_price(market, 1, NOW)
     create_sale(market, 1, NOW)
 

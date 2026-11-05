@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="fr">
+<html lang="en">
   <head>
-    <title><%= [ content_for(:title), "wow-market" ].compact.join(" · ") %></title>
+    <title><%= [ content_for(:title), "WoW Trading" ].compact.join(" · ") %></title>
     <meta name="viewport" content="width=device-width,initial-scale=1">
-    <meta name="description" content="Cours de l'hôtel des ventes de World of Warcraft : prix, tendances et ventes estimées, royaume par royaume.">
+    <meta name="description" content="World of Warcraft auction house prices: trends and estimated sales, realm by realm.">
     <meta name="turbo-prefetch" content="false">
     <meta name="color-scheme" content="dark">
     <meta name="theme-color" content="#0c0f14">
@@ -24,8 +24,8 @@
       <%= yield %>
     </main>
     <footer class="site-footer">
-      <p>Données de l'API Battle.net, relevées environ une fois par heure. Les ventes sont estimées.</p>
-      <p>Site non affilié à Blizzard Entertainment. World of Warcraft est une marque de Blizzard Entertainment, Inc.</p>
+      <p>Data from the Battle.net API, collected about once an hour. Sales are estimated.</p>
+      <p>Not affiliated with Blizzard Entertainment. World of Warcraft is a trademark of Blizzard Entertainment, Inc.</p>
     </footer>
   </body>
 </html>

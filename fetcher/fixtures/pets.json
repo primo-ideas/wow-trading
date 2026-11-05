@@ -1,4 +1,4 @@
 [
-  { "id": 39, "name": "Ecureuil mécanique", "battle_pet_type": { "id": 9, "type": "MECHANICAL", "name": "Machine" } },
-  { "id": 40, "name": "Chat de test", "battle_pet_type": { "id": 8, "type": "BEAST", "name": "Bête" } }
+  { "id": 39, "name": "Mechanical Squirrel", "battle_pet_type": { "id": 9, "type": "MECHANICAL", "name": "Mechanical" } },
+  { "id": 40, "name": "Test Cat", "battle_pet_type": { "id": 8, "type": "BEAST", "name": "Beast" } }
 ]

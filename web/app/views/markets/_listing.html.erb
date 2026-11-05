@@ -5,32 +5,32 @@
 <div class="listing-summary">
   <span>
     <strong><%= number_with_delimiter(listing.total) %></strong>
-    <%= "produit".pluralize(listing.total, :en) %>
-    <%= listing.filtered? ? "trouvé".pluralize(listing.total, :en) : "en vente" %>
+    <%= "product".pluralize(listing.total) %>
+    <%= listing.filtered? ? "found" : "for sale" %>
   </span>
   <% if listing.filtered? %>
-    <%= link_to "Effacer les filtres", market_path(market), class: "link-quiet", data: { turbo_frame: "_top" } %>
+    <%= link_to "Clear filters", market_path(market), class: "link-quiet", data: { turbo_frame: "_top" } %>
   <% end %>
 </div>
 
 <% if listing.rows.empty? %>
   <div class="empty-state">
-    <h2>Aucun résultat</h2>
-    <p>Rien ne correspond à ces filtres sur ce marché. Essayez un autre nom, ou une autre catégorie.</p>
+    <h2>No results</h2>
+    <p>Nothing on this market matches these filters. Try another name or category.</p>
   </div>
 <% else %>
   <div class="table-wrap">
     <table class="listing">
       <thead>
         <tr>
-          <th scope="col"><%= sort_link "Produit", "name", listing %></th>
-          <th scope="col" class="col-wide">7 jours</th>
-          <th scope="col" class="number"><%= sort_link "Médiane", "price", listing %></th>
+          <th scope="col"><%= sort_link "Product", "name", listing %></th>
+          <th scope="col" class="col-wide">7 days</th>
+          <th scope="col" class="number"><%= sort_link "Median", "price", listing %></th>
           <th scope="col" class="number col-medium"><%= sort_link "Minimum", "min", listing %></th>
-          <th scope="col" class="number"><%= sort_link "24 h", "change", listing %></th>
-          <th scope="col" class="number col-medium"><%= sort_link "En vente", "quantity", listing %></th>
-          <th scope="col" class="number col-wide"><%= sort_link "Vendus, 24 h", "sold", listing %></th>
-          <th scope="col" class="number col-wide"><%= sort_link "Valeur, 24 h", "value", listing %></th>
+          <th scope="col" class="number"><%= sort_link "24h", "change", listing %></th>
+          <th scope="col" class="number col-medium"><%= sort_link "For sale", "quantity", listing %></th>
+          <th scope="col" class="number col-wide"><%= sort_link "Sold, 24h", "sold", listing %></th>
+          <th scope="col" class="number col-wide"><%= sort_link "Value, 24h", "value", listing %></th>
         </tr>
       </thead>
       <tbody>
@@ -46,7 +46,7 @@
                   <%= link_to row.display_name, market_item_path(market, row.item_id, variant: row.variant_param),
                         class: "product-link #{quality_class(row.quality)}", data: { turbo_frame: "_top" } %>
                   <% if row.several_variants? %>
-                    <small class="muted"><%= row.variant_count %> variantes</small>
+                    <small class="muted"><%= row.variant_count %> variants</small>
                   <% end %>
                 </span>
               </div>
@@ -66,18 +66,18 @@
 
   <nav class="pagination" aria-label="Pages">
     <% if listing.previous_page? %>
-      <%= link_to "← Précédent", listing_page_path(market, listing, listing.page - 1) %>
+      <%= link_to "← Previous", listing_page_path(market, listing, listing.page - 1) %>
     <% end %>
-    <span class="muted">Page <%= number_with_delimiter(listing.page) %> sur <%= number_with_delimiter(listing.page_count) %></span>
+    <span class="muted">Page <%= number_with_delimiter(listing.page) %> of <%= number_with_delimiter(listing.page_count) %></span>
     <% if listing.next_page? %>
-      <%= link_to "Suivant →", listing_page_path(market, listing, listing.page + 1) %>
+      <%= link_to "Next →", listing_page_path(market, listing, listing.page + 1) %>
     <% end %>
   </nav>
 
   <p class="note">
     <%= render "shared/sales_note" %>
     <% if listing.rows.any?(&:several_variants?) %>
-      Pour un équipement vendu en plusieurs variantes, la médiane est une moyenne pondérée par la quantité.
+      For gear sold in several variants, the median is a quantity-weighted average.
     <% end %>
   </p>
 <% end %>

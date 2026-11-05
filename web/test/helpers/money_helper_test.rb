@@ -2,20 +2,20 @@ require "test_helper"
 
 class MoneyHelperTest < ActionView::TestCase
   test "gives gold, silver and copper, leaving out zeros" do
-    assert_equal "12 po 34 pa 56 pc", money_text(123_456)
-    assert_equal "1 po", money_text(10_000)
-    assert_equal "1 po 5 pc", money_text(10_005)
-    assert_equal "50 pa", money_text(5_000)
-    assert_equal "7 pc", money_text(7)
-    assert_equal "0 pc", money_text(0)
+    assert_equal "12g 34s 56c", money_text(123_456)
+    assert_equal "1g", money_text(10_000)
+    assert_equal "1g 5c", money_text(10_005)
+    assert_equal "50s", money_text(5_000)
+    assert_equal "7c", money_text(7)
+    assert_equal "0c", money_text(0)
     assert_equal "—", money_text(nil)
   end
 
   test "large amounts are rounded to the gold" do
-    assert_equal "1#{delimiter}234 po", money_text(12_340_000)
-    assert_equal "1#{delimiter}235 po", money_text(12_345_678)
-    assert_equal "1#{delimiter}000 po", money_text(10_000_000)
-    assert_equal "999 po 99 pa 99 pc", money_text(9_999_999)
+    assert_equal "1,234g", money_text(12_340_000)
+    assert_equal "1,235g", money_text(12_345_678)
+    assert_equal "1,000g", money_text(10_000_000)
+    assert_equal "999g 99s 99c", money_text(9_999_999)
   end
 
   test "the parts carry each amount with its unit, for the chart script too" do
@@ -27,7 +27,7 @@ class MoneyHelperTest < ActionView::TestCase
   test "shows coins, with the amount spoken for screen readers" do
     html = Nokogiri::HTML5.fragment(money(123_456))
 
-    assert_equal "12 po 34 pa 56 pc", html.at_css(".money")["aria-label"]
+    assert_equal "12g 34s 56c", html.at_css(".money")["aria-label"]
     assert_equal "123456", html.text.delete(" ")
     assert_equal 3, html.css(".coin").size
     assert html.at_css(".coin-g")
@@ -59,8 +59,8 @@ class MoneyHelperTest < ActionView::TestCase
   test "a cell keeps the exact amount for those who want it" do
     html = Nokogiri::HTML5.fragment(money_cell(5_639_477))
 
-    assert_equal "563 po 94 pa 77 pc", html.at_css(".money")["title"]
-    assert_equal "563 po 94 pa 77 pc", html.at_css(".money")["aria-label"]
+    assert_equal "563g 94s 77c", html.at_css(".money")["title"]
+    assert_equal "563g 94s 77c", html.at_css(".money")["aria-label"]
     assert_equal "564", html.text.strip
   end
 
@@ -90,21 +90,21 @@ class MoneyHelperTest < ActionView::TestCase
     assert_equal "0", axis_money(0)
     assert_equal "50", text_of(axis_money(5_000))
     assert axis_money(5_000).include?("coin-s")
-    assert_equal "1,5", text_of(axis_money(15_000))
+    assert_equal "1.5", text_of(axis_money(15_000))
     assert axis_money(15_000).include?("coin-g")
     assert_equal "120", text_of(axis_money(1_200_000))
-    assert_equal "15 k", text_of(axis_money(150_000_000))
+    assert_equal "15k", text_of(axis_money(150_000_000))
   end
 
   test "counts shorten from ten thousand" do
-    assert_equal "9 500", axis_count(9_500)
-    assert_equal "12 k", axis_count(12_000)
+    assert_equal "9,500", axis_count(9_500)
+    assert_equal "12k", axis_count(12_000)
   end
 
   test "changes say which way, in words and in class" do
-    assert_equal "↗ +10,0 %", change_text(0.1)
-    assert_equal "↘ −10,0 %", change_text(-0.1)
-    assert_equal "→ 0,0 %", change_text(0)
+    assert_equal "↗ +10.0%", change_text(0.1)
+    assert_equal "↘ −10.0%", change_text(-0.1)
+    assert_equal "→ 0.0%", change_text(0)
     assert_equal "—", change_text(nil)
     assert_includes change_pill(0.1), "up"
     assert_includes change_pill(-0.1), "down"
@@ -113,7 +113,7 @@ class MoneyHelperTest < ActionView::TestCase
   end
 
   test "a change too small to show as one reads as none" do
-    assert_equal "→ 0,0 %", change_text(0.0004)
+    assert_equal "→ 0.0%", change_text(0.0004)
   end
 
   test "a change needs both prices" do
@@ -124,8 +124,6 @@ class MoneyHelperTest < ActionView::TestCase
   end
 
   private
-
-  def delimiter = I18n.t("number.format.delimiter")
 
   def text_of(html) = Nokogiri::HTML5.fragment(html).text
 end

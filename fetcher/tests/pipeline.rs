@@ -4,14 +4,14 @@
 use chrono::{DateTime, TimeDelta, TimeZone, Utc};
 use sqlx::PgPool;
 
-use wow_market_fetcher::aggregate::{Aggregate, PricePoint, aggregate};
-use wow_market_fetcher::api::stub::StubApi;
-use wow_market_fetcher::api::{Auction, AuctionItem, AuctionSource};
-use wow_market_fetcher::config::{RealmSelection, Region};
-use wow_market_fetcher::pipeline::{CycleReport, FetchOptions, Fetcher, RegionSource};
-use wow_market_fetcher::sales::{SalesPoint, TimeLeft};
-use wow_market_fetcher::simulation::Simulation;
-use wow_market_fetcher::store::{NewSnapshot, Store};
+use wow_trading_fetcher::aggregate::{Aggregate, PricePoint, aggregate};
+use wow_trading_fetcher::api::stub::StubApi;
+use wow_trading_fetcher::api::{Auction, AuctionItem, AuctionSource};
+use wow_trading_fetcher::config::{RealmSelection, Region};
+use wow_trading_fetcher::pipeline::{CycleReport, FetchOptions, Fetcher, RegionSource};
+use wow_trading_fetcher::sales::{SalesPoint, TimeLeft};
+use wow_trading_fetcher::simulation::Simulation;
+use wow_trading_fetcher::store::{NewSnapshot, Store};
 
 const LATER: &str = "Thu, 05 Nov 2026 06:00:00 GMT";
 const EARLIER: &str = "Thu, 05 Nov 2026 04:00:00 GMT";
@@ -656,11 +656,11 @@ async fn resolves_item_metadata_and_remembers_unknown_items(pool: PgPool) {
         .fetch_one(&pool)
         .await
         .unwrap();
-    assert_eq!(name, "Minerai de test");
+    assert_eq!(name, "Test Ore");
     assert_eq!(quality, "RARE");
     assert_eq!(level, 70);
-    assert_eq!(class, "Artisanat");
-    assert_eq!(subclass, "Métal et pierre");
+    assert_eq!(class, "Tradeskill");
+    assert_eq!(subclass, "Metal & Stone");
     assert_eq!(
         count(
             &pool,
@@ -774,7 +774,7 @@ async fn an_item_missing_its_icon_is_looked_up_again_without_losing_its_name(poo
         count(
             &pool,
             "SELECT COUNT(*) FROM items
-             WHERE id = 190396 AND name = 'Minerai de test' AND icon_url IS NOT NULL"
+             WHERE id = 190396 AND name = 'Test Ore' AND icon_url IS NOT NULL"
         )
         .await,
         1
@@ -826,7 +826,7 @@ async fn resolves_the_species_of_caged_pets_and_remembers_unknown_ones(pool: PgP
         count(
             &pool,
             "SELECT COUNT(*) FROM pets
-             WHERE species_id = 39 AND name = 'Ecureuil mécanique' AND icon_url IS NOT NULL"
+             WHERE species_id = 39 AND name = 'Mechanical Squirrel' AND icon_url IS NOT NULL"
         )
         .await,
         1
@@ -1244,7 +1244,7 @@ async fn a_simulated_week_gives_curves_and_sales(pool: PgPool) {
 async fn opening_creates_the_database_and_can_be_repeated() {
     let server = std::env::var("DATABASE_URL").expect("the tests need DATABASE_URL");
     let (base, _) = server.rsplit_once('/').unwrap();
-    let name = format!("wow_market_open_test_{}", std::process::id());
+    let name = format!("wow_trading_open_test_{}", std::process::id());
     let url = format!("{base}/{name}");
     let cleanup = |url: String| async move {
         use sqlx::migrate::MigrateDatabase;

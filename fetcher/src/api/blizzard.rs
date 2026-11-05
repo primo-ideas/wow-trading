@@ -139,7 +139,7 @@ impl BlizzardClient {
         retry: RetryPolicy,
     ) -> Result<Self, ApiError> {
         let http = reqwest::Client::builder()
-            .user_agent(concat!("wow-market-fetcher/", env!("CARGO_PKG_VERSION")))
+            .user_agent(concat!("wow-trading-fetcher/", env!("CARGO_PKG_VERSION")))
             .connect_timeout(CONNECT_TIMEOUT)
             .timeout(REQUEST_TIMEOUT)
             .build()?;

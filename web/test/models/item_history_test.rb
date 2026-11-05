@@ -11,11 +11,11 @@ class ItemHistoryTest < ActiveSupport::TestCase
     create_price(@market, 2589, NOW - 6.days)
     create_price(@market, 2589, NOW - 8.days)
 
-    assert_equal [ NOW - 6.days ], history(period: "7j").prices.map(&:taken_at)
+    assert_equal [ NOW - 6.days ], history(period: "7d").prices.map(&:taken_at)
   end
 
   test "an unknown period falls back to the default" do
-    assert_equal ItemHistory::DEFAULT_PERIOD, history(period: "1000j").period
+    assert_equal ItemHistory::DEFAULT_PERIOD, history(period: "1000d").period
   end
 
   test "joins rolled up days and hourly detail in time order" do
@@ -23,7 +23,7 @@ class ItemHistoryTest < ActiveSupport::TestCase
     create_price(@market, 2589, NOW - 1.hour, median: 1_000)
     create_price(@market, 2589, NOW, median: 1_100)
 
-    prices = history(period: "tout").prices
+    prices = history(period: "all").prices
 
     assert_equal [ 500, 1_000, 1_100 ], prices.map(&:median_price)
     assert_equal [ true, false, false ], prices.map(&:daily)
@@ -34,7 +34,7 @@ class ItemHistoryTest < ActiveSupport::TestCase
     insert_daily_price(@market, 2589, (NOW - 20.days).to_date, median: 500)
     insert_daily_price(@market, 2589, (NOW - 40.days).to_date, median: 400)
 
-    assert_equal [ 500 ], history(period: "30j").prices.map(&:median_price)
+    assert_equal [ 500 ], history(period: "30d").prices.map(&:median_price)
   end
 
   test "keeps variants and markets apart" do
@@ -64,7 +64,7 @@ class ItemHistoryTest < ActiveSupport::TestCase
     create_sale(@market, 2589, Time.utc(2026, 11, 5, 11), quantity: 4, value: 40)
     create_sale(@market, 2589, Time.utc(2026, 11, 4, 23), quantity: 5, value: 50)
 
-    sales = history(period: "7j").sales
+    sales = history(period: "7d").sales
 
     assert_equal 8, sales.size
     assert_equal [ Time.utc(2026, 11, 4), Time.utc(2026, 11, 5) ], sales.last(2).map(&:starts_at)
@@ -77,7 +77,7 @@ class ItemHistoryTest < ActiveSupport::TestCase
     insert_daily_sale(@market, 2589, Date.new(2026, 10, 1), quantity: 9, value: 90)
     create_sale(@market, 2589, NOW, quantity: 1, value: 10)
 
-    sales = history(period: "tout").sales
+    sales = history(period: "all").sales
 
     assert_equal Time.utc(2026, 10, 1), sales.first.starts_at
     assert_equal 9, sales.first.sold_quantity
@@ -86,7 +86,7 @@ class ItemHistoryTest < ActiveSupport::TestCase
   end
 
   test "all time without any sale has no bucket" do
-    assert_empty history(period: "tout").sales
+    assert_empty history(period: "all").sales
   end
 
   test "current and reference come from the latest snapshot and a day before" do

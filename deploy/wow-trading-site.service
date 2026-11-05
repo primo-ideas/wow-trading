@@ -1,15 +1,15 @@
 # The site, listening on localhost only: Caddy faces the outside when there is a domain.
 [Unit]
-Description=wow-market: site
+Description=WoW Trading: site
 After=network.target postgresql.service
 Requires=postgresql.service
 
 [Service]
 Type=simple
-User=wowmarket
-Group=wowmarket
-WorkingDirectory=/opt/wow-market/web
-EnvironmentFile=/etc/wow-market/site.env
+User=wowtrading
+Group=wowtrading
+WorkingDirectory=/opt/wow-trading/web
+EnvironmentFile=/etc/wow-trading/site.env
 Environment=RAILS_ENV=production RAILS_MAX_THREADS=3 BUNDLE_DEPLOYMENT=1
 ExecStart=/usr/bin/env bundle exec puma -C config/puma.rb
 Restart=always
@@ -20,7 +20,7 @@ PrivateTmp=true
 PrivateDevices=true
 ProtectSystem=strict
 ProtectHome=true
-ReadWritePaths=/opt/wow-market/web/tmp /opt/wow-market/web/log
+ReadWritePaths=/opt/wow-trading/web/tmp /opt/wow-trading/web/log
 ProtectKernelTunables=true
 ProtectKernelModules=true
 ProtectControlGroups=true

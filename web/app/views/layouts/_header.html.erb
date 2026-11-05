@@ -1,23 +1,23 @@
 <header class="site-header">
   <%= link_to root_path, class: "brand" do %>
-    <i class="coin coin-g" aria-hidden="true"></i>wow-market
+    <i class="coin coin-g" aria-hidden="true"></i>WoW Trading
   <% end %>
 
   <% if tracked_markets.any? %>
     <details class="switcher" data-menu>
-      <summary title="Changer de royaume">
+      <summary title="Change realm">
         <span class="switcher-label">
           <% if remembered_market %>
             <span class="region"><%= remembered_market.region.upcase %></span>
             <%= short_market_name(remembered_market) %>
           <% else %>
-            Choisir un royaume
+            Choose a realm
           <% end %>
         </span>
       </summary>
       <div class="menu-panel">
         <% if tracked_markets.size > 6 %>
-          <input type="search" class="menu-filter" placeholder="Filtrer les royaumes" aria-label="Filtrer les royaumes" data-menu-filter>
+          <input type="search" class="menu-filter" placeholder="Filter realms" aria-label="Filter realms" data-menu-filter>
         <% end %>
         <ul class="menu-list">
           <% tracked_markets.each do |market| %>
@@ -33,9 +33,9 @@
     </details>
 
     <%= form_with url: search_path, method: :get, class: "site-search", role: "search", data: { search: true, turbo: false } do |form| %>
-      <%= form.label :q, "Chercher un objet", class: "visually-hidden", for: "site-search-input" %>
+      <%= form.label :q, "Search for an item", class: "visually-hidden", for: "site-search-input" %>
       <%= form.search_field :q, value: params[:q].to_s.first(100), id: "site-search-input",
-            placeholder: "Chercher un objet ou une mascotte", autocomplete: "off",
+            placeholder: "Search for an item or a pet", autocomplete: "off",
             "aria-controls": "site-search-results", "aria-expanded": "false", role: "combobox" %>
       <kbd aria-hidden="true">/</kbd>
       <div id="site-search-results" class="search-results" role="listbox" aria-label="Suggestions" hidden></div>

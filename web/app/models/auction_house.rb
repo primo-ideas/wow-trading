@@ -24,7 +24,7 @@ class AuctionHouse < ApplicationRecord
 
   def commodities? = connected_realm_id.nil?
 
-  def display_name = commodities? ? "Matières premières" : name
+  def display_name = commodities? ? "Commodities" : name
 
   def latest_snapshot_at = snapshots.maximum(:taken_at)
 end

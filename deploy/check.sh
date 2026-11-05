@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# Says whether wow-market is working on this server. Prints no secret, so its output
+# Says whether WoW Trading is working on this server. Prints no secret, so its output
 # can be shared to get help.
 #
 #   sudo ./deploy/check.sh
@@ -8,8 +8,8 @@ set -uo pipefail
 
 [ "$(id -u)" -eq 0 ] || { echo "run this as root: sudo $0" >&2; exit 1; }
 
-ETC=/etc/wow-market
-DATABASE=wow_market
+ETC=/etc/wow-trading
+DATABASE=wow_trading
 failed=0
 
 ok() { printf '  ok    %s\n' "$*"; }
@@ -38,12 +38,12 @@ fi
 printf '  scope: %s\n' "$(sed -n 's/^WOW_SCOPE=//p' "$ETC/fetcher.env" 2>/dev/null)"
 
 echo "Services"
-for unit in postgresql wow-market-site.service wow-market-fetcher.timer; do
+for unit in postgresql wow-trading-site.service wow-trading-fetcher.timer; do
   if systemctl is-active --quiet "$unit"; then ok "$unit is running"; else bad "$unit is not running"; fi
 done
-systemctl list-timers wow-market-fetcher.timer --no-pager --no-legend | sed 's/^/  next: /'
-result="$(systemctl show wow-market-fetcher.service --property=Result --value)"
-state="$(systemctl show wow-market-fetcher.service --property=ActiveState --value)"
+systemctl list-timers wow-trading-fetcher.timer --no-pager --no-legend | sed 's/^/  next: /'
+result="$(systemctl show wow-trading-fetcher.service --property=Result --value)"
+state="$(systemctl show wow-trading-fetcher.service --property=ActiveState --value)"
 if [ "$result" = "success" ]; then
   ok "last cycle succeeded (now: $state)"
 else
@@ -86,14 +86,14 @@ else
 fi
 
 echo "Recent problems in the fetcher's logs"
-journalctl --unit wow-market-fetcher.service --since "-3 hours" --no-pager --output=cat --priority=warning 2>/dev/null | tail -n 5
-journalctl --unit wow-market-fetcher.service --since "-3 hours" --no-pager --output=cat 2>/dev/null |
+journalctl --unit wow-trading-fetcher.service --since "-3 hours" --no-pager --output=cat --priority=warning 2>/dev/null | tail -n 5
+journalctl --unit wow-trading-fetcher.service --since "-3 hours" --no-pager --output=cat 2>/dev/null |
   grep -E ' (ERROR|WARN) |^error' | cut -c1-200 | tail -n 10
 
 echo
 if [ "$failed" -eq 0 ]; then
   echo "Everything looks fine."
 else
-  echo "Something is wrong: see FAIL above. Logs: journalctl -u wow-market-fetcher.service -u wow-market-site.service -n 100"
+  echo "Something is wrong: see FAIL above. Logs: journalctl -u wow-trading-fetcher.service -u wow-trading-site.service -n 100"
   exit 1
 fi

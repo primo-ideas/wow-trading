@@ -10,7 +10,7 @@ class ChartsTest < ActiveSupport::TestCase
         LineChart::Series.new(key: :a, name: "A", css_class: "series-1"),
         LineChart::Series.new(key: :b, name: "B", css_class: "series-2")
       ],
-      band: LineChart::Band.new(low_key: :low, high_key: :high, name: "Bande"),
+      band: LineChart::Band.new(low_key: :low, high_key: :high, name: "Band"),
       format_value: ->(value) { "v#{value}" },
       format_axis: ->(value) { "t#{value}" },
       format_parts: ->(value) { [ [ "p#{value}", nil ] ] },
@@ -30,7 +30,7 @@ class ChartsTest < ActiveSupport::TestCase
           time: T0 + index.hours,
           title: "b#{index}",
           tick: "t#{index}",
-          details: [ [ "Quantité", [ [ value.to_s, nil ] ], value.to_s ] ]
+          details: [ [ "Quantity", [ [ value.to_s, nil ] ], value.to_s ] ]
         }
       },
       format_axis: ->(value) { value.to_s }
@@ -105,7 +105,7 @@ class ChartsTest < ActiveSupport::TestCase
   test "the tooltip and the table give every series and the band" do
     chart = line_chart([ row(T0), row(T0 + 1.hour, a: 200) ])
 
-    assert_equal [ "A", "B", "Bande" ], chart.table_columns
+    assert_equal [ "A", "B", "Band" ], chart.table_columns
     assert_equal [ "v200", "v50", "v90 – v110" ], chart.table_rows.first.drop(1)
 
     point = chart.points.first
@@ -145,10 +145,10 @@ class ChartsTest < ActiveSupport::TestCase
 
   test "the time axis stays within the period and is not crowded" do
     {
-      1.day => /\A\d\dh\z/,
-      7.days => /\A\d+ \S+\z/,
-      90.days => /\A\d+ \S+\z/,
-      700.days => /\A\d+ \S+\z/
+      1.day => /\A\d\d:00\z/,
+      7.days => /\A\S+ \d+\z/,
+      90.days => /\A\S+ \d+\z/,
+      700.days => /\A\S+ \d+\z/
     }.each do |span, format|
       first = T0
       ticks = TimeTicks.new(first, first + span).ticks

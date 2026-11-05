@@ -10,7 +10,7 @@ class ListedProduct < ApplicationRecord
     LEFT JOIN pets ON pets.species_id = NULLIF(substring(listed.series FROM 5), '')::int
   SQL
 
-  def display_name = name.presence || "Objet ##{item_id}"
+  def display_name = name.presence || "Item ##{item_id}"
 
   # Gear is listed once whatever its bonus lists: its page offers the variants.
   def variant_param = series.presence

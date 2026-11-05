@@ -6,10 +6,10 @@ use serde_json::Value;
 use wiremock::matchers::{basic_auth, bearer_token, body_string, method, path, query_param};
 use wiremock::{Mock, MockServer, Request, ResponseTemplate};
 
-use wow_market_fetcher::api::blizzard::{BlizzardClient, Credentials, Endpoints, RetryPolicy};
-use wow_market_fetcher::api::{ApiError, AuctionApi, AuctionSource, Fetched};
-use wow_market_fetcher::config::Region;
-use wow_market_fetcher::sales::TimeLeft;
+use wow_trading_fetcher::api::blizzard::{BlizzardClient, Credentials, Endpoints, RetryPolicy};
+use wow_trading_fetcher::api::{ApiError, AuctionApi, AuctionSource, Fetched};
+use wow_trading_fetcher::config::Region;
+use wow_trading_fetcher::sales::TimeLeft;
 
 const INDEX: &str = include_str!("../fixtures/connected_realm_index.json");
 const CONNECTED_REALMS: &str = include_str!("../fixtures/connected_realms.json");
@@ -29,7 +29,7 @@ fn client(server: &MockServer) -> BlizzardClient {
             oauth_token: format!("{}/token", server.uri()),
         },
         Region::Eu,
-        "fr_FR",
+        "en_US",
         RetryPolicy {
             max_attempts: 3,
             base_delay: Duration::from_millis(1),
@@ -77,7 +77,7 @@ async fn requests_a_token_with_the_client_credentials_then_reuses_it() {
         .and(path(INDEX_PATH))
         .and(bearer_token("tok"))
         .and(query_param("namespace", "dynamic-eu"))
-        .and(query_param("locale", "fr_FR"))
+        .and(query_param("locale", "en_US"))
         .respond_with(json(INDEX))
         .expect(2)
         .mount(&server)
@@ -422,7 +422,7 @@ async fn reads_an_item_from_the_static_namespace() {
     Mock::given(method("GET"))
         .and(path("/data/wow/item/190396"))
         .and(query_param("namespace", "static-eu"))
-        .and(query_param("locale", "fr_FR"))
+        .and(query_param("locale", "en_US"))
         .respond_with(ResponseTemplate::new(200).set_body_json(&items[0]))
         .expect(1)
         .mount(&server)
@@ -430,10 +430,10 @@ async fn reads_an_item_from_the_static_namespace() {
 
     let item = client(&server).item(190396).await.unwrap().unwrap();
 
-    assert_eq!(item.name(), Some("Minerai de test"));
+    assert_eq!(item.name(), Some("Test Ore"));
     assert_eq!(item.quality.as_ref().unwrap().kind, "RARE");
     assert_eq!(item.level, Some(70));
-    assert_eq!(item.item_class.unwrap().name.as_deref(), Some("Artisanat"));
+    assert_eq!(item.item_class.unwrap().name.as_deref(), Some("Tradeskill"));
     assert_eq!(item.icon_url, None);
 }
 
@@ -535,7 +535,7 @@ async fn reads_the_icon_of_an_item() {
     Mock::given(method("GET"))
         .and(path("/data/wow/item/190396"))
         .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
-            "id": 190396, "name": "Minerai",
+            "id": 190396, "name": "Ore",
         })))
         .mount(&server)
         .await;
@@ -562,7 +562,7 @@ async fn a_failing_icon_does_not_lose_the_item() {
     Mock::given(method("GET"))
         .and(path("/data/wow/item/190396"))
         .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
-            "id": 190396, "name": "Minerai",
+            "id": 190396, "name": "Ore",
         })))
         .mount(&server)
         .await;
@@ -574,7 +574,7 @@ async fn a_failing_icon_does_not_lose_the_item() {
 
     let item = client(&server).item(190396).await.unwrap().unwrap();
 
-    assert_eq!(item.name(), Some("Minerai"));
+    assert_eq!(item.name(), Some("Ore"));
     assert_eq!(item.icon_url, None);
 }
 

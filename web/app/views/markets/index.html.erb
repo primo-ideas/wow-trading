@@ -1,12 +1,12 @@
 <section class="hero">
-  <h1>Le cours de l'hôtel des ventes</h1>
-  <p class="lead">Les prix, les tendances et les ventes estimées, relevés environ une fois par heure sur l'API de Blizzard. Choisissez votre royaume : il sera retenu pour vos prochaines visites.</p>
+  <h1>Auction house prices</h1>
+  <p class="lead">Prices, trends and estimated sales, collected about once an hour from Blizzard's API. Choose your realm: it will be remembered for your next visits.</p>
 </section>
 
 <% if tracked_markets.empty? %>
   <div class="empty-state">
-    <h2>Aucun marché pour l'instant</h2>
-    <p>Le fetcher n'a encore rien récupéré. Les marchés apparaîtront ici après son premier cycle.</p>
+    <h2>No markets yet</h2>
+    <p>The fetcher has not collected anything yet. Markets will appear here after its first cycle.</p>
   </div>
 <% else %>
   <% tracked_markets.group_by(&:region).each do |region, markets| %>
@@ -18,7 +18,7 @@
             <%= link_to market_path(market), class: "market-card" do %>
               <span class="market-card-name" title="<%= market.display_name %>"><%= market.display_name %></span>
               <span class="market-card-meta">
-                <%= number_with_delimiter(market.latest_auction_count) %> annonces
+                <%= number_with_delimiter(market.latest_auction_count) %> listings
               </span>
               <%= freshness(market.latest_taken_at) %>
             <% end %>

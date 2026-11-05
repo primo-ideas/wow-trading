@@ -43,6 +43,6 @@ class TimeTicks
   end
 
   def tick(time)
-    { time: time, label: I18n.l(time, format: hourly? ? "%Hh" : "%-d %b") }
+    { time: time, label: I18n.l(time, format: hourly? ? "%H:00" : "%b %-d") }
   end
 end

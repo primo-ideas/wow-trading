@@ -19,9 +19,9 @@ class Product
   def quality = item.quality
 
   def wowhead_url
-    return "https://www.wowhead.com/fr/battle-pet/#{species_id}" if pet?
+    return "https://www.wowhead.com/battle-pet/#{species_id}" if pet?
 
-    "https://www.wowhead.com/fr/item=#{item.id}"
+    "https://www.wowhead.com/item=#{item.id}"
   end
 
   private

@@ -7,10 +7,10 @@
   </figcaption>
 
   <% if chart.empty? %>
-    <p class="muted">Aucune vente estimée sur cette période.</p>
+    <p class="muted">No estimated sales in this period.</p>
   <% else %>
     <div class="plot plot-short plot-no-end" tabindex="0" role="img"
-         aria-label="<%= title %>. <%= description %>. Flèches gauche et droite pour parcourir les valeurs ; toutes sont aussi dans le tableau sous le graphique.">
+         aria-label="<%= title %>. <%= description %>. Left and right arrows move through the values; all of them are also in the table below the chart.">
       <div class="plot-y" aria-hidden="true">
         <% chart.y_labels.each do |tick| %>
           <span style="top: <%= tick[:y] %>%"><%= tick[:label] %></span>

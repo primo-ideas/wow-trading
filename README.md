@@ -1,144 +1,144 @@
-# wow-market
+# WoW Trading
 
-Courbes de prix et ventes estimées de l'hôtel des ventes de World of Warcraft.
+Price curves and estimated sales for the World of Warcraft auction house.
 
-- [`fetcher/`](fetcher/) : récupère les enchères sur l'API Battle.net et stocke des statistiques dans Postgres (Rust).
-- [`web/`](web/) : le site, qui lit cette base sans jamais y écrire (Rails).
-- [`deploy/`](deploy/) : l'installation sur un serveur Ubuntu, voir [son guide](deploy/README.md).
+- [`fetcher/`](fetcher/): collects auctions from the Battle.net API and stores statistics in Postgres (Rust).
+- [`web/`](web/): the site, which reads that database and never writes to it (Rails).
+- [`deploy/`](deploy/): installation on an Ubuntu server, see [its guide](deploy/README.md).
 
-## Essayer sans identifiants
+## Try it without credentials
 
-Sous Windows, avec [PowerShell 7.2 ou plus](https://github.com/PowerShell/PowerShell) et [Rust](https://rustup.rs) :
+On Windows, with [PowerShell 7.2 or later](https://github.com/PowerShell/PowerShell) and [Rust](https://rustup.rs):
 
 ```powershell
 ./run.ps1 -Stub
 ```
 
-Au premier lancement, le script installe Postgres et Ruby dans `%LOCALAPPDATA%\wow-market`, sans droits d'administrateur, sans toucher au `PATH` et sans créer de service. Il simule ensuite une semaine d'enchères, démarre le site sur <http://127.0.0.1:3000> et ouvre le navigateur. Ctrl-C arrête tout ce qu'il a démarré.
+On first use, the script installs Postgres and Ruby in `%LOCALAPPDATA%\wow-trading`, without admin rights, without touching the `PATH` and without creating a service. It then simulates a week of auctions, starts the site on <http://127.0.0.1:3000> and opens the browser. Ctrl-C stops everything it started.
 
-`-Stub` écrit dans une base à part, `wow_market_stub` : les fausses données ne peuvent pas se mélanger à l'historique réel.
+`-Stub` writes to a separate database, `wow_trading_stub`: fake data cannot mix with the real history.
 
-## Brancher Battle.net
+## Connect Battle.net
 
-1. Créer un client sur <https://develop.battle.net/access/clients>.
-2. Copier `.env.example` vers `.env` et renseigner `BLIZZARD_CLIENT_ID` et `BLIZZARD_CLIENT_SECRET`. Ce fichier est ignoré par git.
-3. Lancer le script sur un petit périmètre :
+1. Create a client on <https://develop.battle.net/access/clients>.
+2. Copy `.env.example` to `.env` and fill in `BLIZZARD_CLIENT_ID` and `BLIZZARD_CLIENT_SECRET`. Git ignores this file.
+3. Run the script on a small scope:
 
 ```powershell
 ./run.ps1 -Scope eu/commodities
 ```
 
-Sans `-Scope`, le script récupère tous les royaumes de toutes les régions. Sans `-Stub` et sans identifiants, il s'arrête avec un message d'erreur : il ne se rabat jamais sur les données d'exemple.
+Without `-Scope`, the script fetches every realm of every region. Without `-Stub` and without credentials, it stops with an error message: it never falls back on sample data.
 
-## Déployer sur un serveur
+## Deploy to a server
 
-Sur Ubuntu 26.04, `deploy/install.sh` installe tout, avec le fetcher sur un timer systemd toutes les 5 minutes. Voir [le guide de déploiement](deploy/README.md), qui explique aussi ce choix de fréquence.
+On Ubuntu 26.04, `deploy/install.sh` installs everything, with the fetcher on a systemd timer every 5 minutes. See [the deployment guide](deploy/README.md), which also explains that frequency.
 
 ## run.ps1
 
-| Option | Rôle |
+| Option | Purpose |
 | --- | --- |
-| `-Scope` | Ce qu'il faut récupérer, voir [Périmètre](#périmètre) |
-| `-Config` | Fichier contenant les identifiants, à la place de `.env` |
-| `-Stub` | Données simulées, sans identifiants |
-| `-Port` | Port du site, 3000 par défaut |
-| `-NoBrowser` | N'ouvre pas le navigateur |
-| `-SetupOnly` | Installe ce qui manque, puis s'arrête |
-| `-Test` | Lance les tests du fetcher et du site, puis s'arrête |
+| `-Scope` | What to fetch, see [Scope](#scope) |
+| `-Config` | File holding the credentials, instead of `.env` |
+| `-Stub` | Simulated data, no credentials needed |
+| `-Port` | Port of the site, 3000 by default |
+| `-NoBrowser` | Does not open the browser |
+| `-SetupOnly` | Installs what is missing, then exits |
+| `-Test` | Runs the fetcher and site tests, then exits |
 
-## Sans run.ps1
+## Without run.ps1
 
-Le script ne fonctionne que sous Windows. Ailleurs, avec un serveur Postgres et Ruby déjà installés (ces commandes n'ont pas été testées hors de Windows) :
+The script only works on Windows. Elsewhere, with a Postgres server and Ruby already installed (these commands have not been tested outside Windows):
 
 ```sh
-export DATABASE_URL=postgres://utilisateur:mot-de-passe@localhost:5432/wow_market
-cargo run -p wow-market-fetcher -- --stub once
+export DATABASE_URL=postgres://user:password@localhost:5432/wow_trading
+cargo run -p wow-trading-fetcher -- --stub once
 
 cd web
 bundle install
-DATABASE_URL=postgres://utilisateur:mot-de-passe@localhost:5432/wow_market_stub bin/rails server
+DATABASE_URL=postgres://user:password@localhost:5432/wow_trading_stub bin/rails server
 ```
 
-Le fetcher crée la base si elle n'existe pas et applique lui-même ses migrations.
+The fetcher creates the database if it does not exist and applies its own migrations.
 
 ## Fetcher
 
 ```sh
-cargo run -p wow-market-fetcher -- once    # un cycle, code de sortie 2 si un marché a échoué
-cargo run -p wow-market-fetcher -- watch   # un cycle toutes les 10 minutes, jusqu'à Ctrl-C
+cargo run -p wow-trading-fetcher -- once    # one cycle, exit code 2 if a market failed
+cargo run -p wow-trading-fetcher -- watch   # one cycle every 10 minutes, until Ctrl-C
 ```
 
-Chaque option peut se passer en ligne de commande ou par une variable d'environnement, éventuellement dans `.env`. Une variable déjà présente dans l'environnement l'emporte sur le fichier.
+Each option can be passed on the command line or as an environment variable, possibly in `.env`. A variable already set in the environment wins over the file.
 
-| Option | Variable | Défaut | Rôle |
+| Option | Variable | Default | Purpose |
 | --- | --- | --- | --- |
-| | `DATABASE_URL` | obligatoire | Serveur et base Postgres |
-| | `BLIZZARD_CLIENT_ID`, `BLIZZARD_CLIENT_SECRET` | obligatoires sans `--stub` | Identifiants Battle.net |
-| `--scope` | `WOW_SCOPE` | tout | Ce qu'il faut récupérer |
-| `--locale` | `WOW_LOCALE` | `fr_FR` | Langue des noms d'objets et de royaumes |
-| `--concurrency` | `WOW_CONCURRENCY` | `4` | Requêtes simultanées par région |
-| `--item-batch` | `WOW_ITEM_BATCH` | `1000` | Objets, et espèces de mascottes, à identifier au maximum par cycle |
-| `--hourly-retention-days` | `WOW_HOURLY_RETENTION_DAYS` | `14` | Jours de détail horaire conservés |
-| `--poll-seconds` (`watch`) | `WOW_POLL_SECONDS` | `600` | Attente entre deux cycles |
-| `--config` | | `.env` | Fichier de variables à lire |
-| `--stub` | | | Données simulées, dans la base suffixée `_stub` |
+| | `DATABASE_URL` | required | Postgres server and database |
+| | `BLIZZARD_CLIENT_ID`, `BLIZZARD_CLIENT_SECRET` | required without `--stub` | Battle.net credentials |
+| `--scope` | `WOW_SCOPE` | everything | What to fetch |
+| `--locale` | `WOW_LOCALE` | `en_US` | Language of item and realm names |
+| `--concurrency` | `WOW_CONCURRENCY` | `4` | Simultaneous requests per region |
+| `--item-batch` | `WOW_ITEM_BATCH` | `1000` | Most items, and pet species, to look up per cycle |
+| `--hourly-retention-days` | `WOW_HOURLY_RETENTION_DAYS` | `14` | Days of hourly detail to keep |
+| `--poll-seconds` (`watch`) | `WOW_POLL_SECONDS` | `600` | Wait between two cycles |
+| `--config` | | `.env` | File of variables to read |
+| `--stub` | | | Simulated data, in the database suffixed `_stub` |
 
-Les logs se règlent avec `RUST_LOG`, par exemple `RUST_LOG=debug`.
+Logging is set with `RUST_LOG`, for example `RUST_LOG=debug`.
 
-### Périmètre
+### Scope
 
-Une ou plusieurs entrées séparées par des virgules, par exemple `eu/hyjal,eu/archimonde,us` :
+One or more entries separated by commas, for example `eu/hyjal,eu/archimonde,us`:
 
-| Entrée | Sens |
+| Entry | Meaning |
 | --- | --- |
-| `eu` | Tous les royaumes de la région, et ses matières premières |
-| `eu/hyjal` | Ce royaume, et les matières premières de la région |
-| `eu/commodities` | Les matières premières de la région seulement |
+| `eu` | Every realm of the region, and its commodities |
+| `eu/hyjal` | This realm, and the commodities of the region |
+| `eu/commodities` | Only the commodities of the region |
 
-Les régions sont `us`, `eu`, `kr` et `tw`.
+The regions are `us`, `eu`, `kr` and `tw`.
 
-### Déroulement d'un cycle
+### What a cycle does
 
-Pour chaque région, le fetcher :
+For each region, the fetcher:
 
-1. découvre les royaumes connectés encore inconnus ;
-2. demande à chaque marché suivi son snapshot avec `If-Modified-Since`, ce qui ne coûte presque rien tant que rien n'a changé ;
-3. réduit chaque nouveau snapshot à une ligne de statistiques par objet, estime les ventes depuis le snapshot précédent, calcule ce que le site affichera pour ce marché, et écrit le tout en une seule transaction.
+1. discovers connected realms it does not know yet;
+2. asks each followed market for its snapshot with `If-Modified-Since`, which costs next to nothing as long as nothing has changed;
+3. reduces each new snapshot to one line of statistics per item, estimates sales since the previous snapshot, works out what the site will show for that market, and writes it all in a single transaction.
 
-Il récupère ensuite les noms, caractéristiques et icônes des objets et des mascottes nouvellement vus, par lots et en commençant par ce qui s'échange le plus, puis résume en statistiques journalières les jours sortis de la période de rétention.
+It then fetches the names, details and icons of newly seen items and pets, in batches and starting with what trades most, and rolls up into daily statistics the days that have left the retention period.
 
-Un marché en échec n'empêche pas les autres et sera retenté au cycle suivant. Des identifiants refusés, un royaume inconnu ou une erreur de base de données arrêtent le programme, car réessayer n'y changerait rien.
+A failed market does not hold back the others and is retried at the next cycle. Rejected credentials, an unknown realm or a database error stop the program, as retrying would not change anything.
 
-## Données
+## Data
 
-Les prix sont en pièces de cuivre (1 po = 10 000) et les dates en UTC.
+Prices are in copper (1 gold = 10,000) and dates in UTC.
 
-| Table | Contenu |
+| Table | Contents |
 | --- | --- |
-| `auction_houses` | Un marché : un royaume connecté, ou les matières premières de la région (`connected_realm_id` à `NULL`) |
-| `realms` | Royaumes et marché auquel chacun appartient |
-| `snapshots` | Journal des snapshots ingérés |
-| `market_states` | Enchères du dernier snapshot de chaque marché, pour estimer les ventes au suivant. Pas destinée à la lecture |
-| `price_points` | Prix minimum, 1er quartile, médiane, 3e quartile, moyenne, quantité et nombre d'enchères, par objet et par snapshot |
-| `sales_points` | Quantité, valeur et nombre d'enchères vendues, par objet, entre deux snapshots |
-| `price_points_daily`, `sales_points_daily` | Les mêmes données, par jour UTC, une fois sorties de la période de rétention |
-| `listed_products` | Ce qu'un marché a en vente au dernier snapshot : les variantes d'un équipement additionnées, les ventes sur 24 heures et l'évolution sur 24 heures. Remplacé à chaque snapshot, c'est ce que lisent les listes du site |
-| `items` | Nom, qualité, niveau, classe et icône des objets. `name` à `NULL` : pas encore identifié, ou inconnu de l'API |
-| `pets` | Nom et icône des espèces de mascottes |
+| `auction_houses` | A market: a connected realm, or the commodities of the region (`connected_realm_id` is `NULL`) |
+| `realms` | Realms and the market each belongs to |
+| `snapshots` | Log of ingested snapshots |
+| `market_states` | Auctions of the latest snapshot of each market, to estimate sales at the next one. Not meant for reading |
+| `price_points` | Minimum price, 1st quartile, median, 3rd quartile, mean, quantity and number of auctions, per item and per snapshot |
+| `sales_points` | Quantity, value and number of auctions sold, per item, between two snapshots |
+| `price_points_daily`, `sales_points_daily` | The same data, per UTC day, once out of the retention period |
+| `listed_products` | What a market has for sale at the latest snapshot: the variants of a piece of gear added up, 24-hour sales and the 24-hour change. Replaced at each snapshot, this is what the site's listings read |
+| `items` | Name, quality, level, class and icon of items. `name` is `NULL`: not looked up yet, or unknown to the API |
+| `pets` | Name and icon of pet species |
 
-`price_points` et `sales_points` ont une partition par jour. Au-delà de la rétention, chaque jour est remplacé par une ligne par objet dans les tables `*_daily` : prix et quantités moyens, prix minimum le plus bas, ventes additionnées. Ce résumé est définitif.
+`price_points` and `sales_points` have one partition per day. Beyond the retention period, each day is replaced by one row per item in the `*_daily` tables: mean prices and quantities, lowest minimum price, sales added up. This summary is final.
 
-Les quantiles sont pondérés par la quantité, pour qu'une annonce unique à un prix absurde ne déplace pas la médiane. Préférer la médiane ou les quartiles à la moyenne pour les courbes : la moyenne reste sensible à ces annonces.
+Quantiles are weighted by quantity, so that a single listing at an absurd price does not move the median. Prefer the median or the quartiles to the mean for curves: the mean remains sensitive to those listings.
 
-`variant` distingue ce qui partage un même identifiant d'objet sans être le même produit :
+`variant` tells apart what shares an item id without being the same product:
 
-| `variant` | Sens |
+| `variant` | Meaning |
 | --- | --- |
-| *(vide)* | Objet simple |
-| `pet:39` | Mascotte en cage, par espèce : toutes partagent l'objet 82800 |
-| `bonus:1472,6652` | Équipement, par liste de bonus, qui détermine notamment le niveau d'objet |
+| *(empty)* | Plain item |
+| `pet:39` | Caged pet, by species: they all share item 82800 |
+| `bonus:1472,6652` | Gear, by bonus list, which notably sets the item level |
 
-Une courbe récente se lit directement ; [`item_history.rb`](web/app/models/item_history.rb) y ajoute les jours résumés.
+A recent curve can be read directly; [`item_history.rb`](web/app/models/item_history.rb) adds the rolled-up days to it.
 
 ```sql
 SELECT taken_at, min_price, median_price, quantity
@@ -147,36 +147,36 @@ WHERE auction_house_id = $1 AND item_id = $2 AND variant = ''
 ORDER BY taken_at;
 ```
 
-### Ventes estimées
+### Estimated sales
 
-L'API ne donne pas les ventes. Le fetcher compare deux snapshots consécutifs : une enchère qui disparaît compte comme vendue si elle avait trop de temps restant pour avoir simplement expiré, et une quantité qui baisse compte comme une vente partielle.
+The API does not give sales. The fetcher compares two consecutive snapshots: an auction that disappears counts as sold if it had too much time left to have simply expired, and a quantity that drops counts as a partial sale.
 
-Cela reste une estimation. Une enchère annulée ressemble à une vente, ce qui gonfle le chiffre. Une enchère vendue peu avant d'expirer, ou mise en vente et vendue entre deux snapshots, passe inaperçue, ce qui le réduit.
+This remains an estimate. A cancelled auction looks like a sale, which inflates the figure. An auction sold shortly before expiring, or listed and sold between two snapshots, goes unnoticed, which reduces it.
 
 ## Site
 
-- `/` : le dernier royaume consulté, ou à défaut la liste des marchés (`/markets`).
-- `/markets/:id` : les plus fortes hausses et baisses sur 24 heures et les plus échangés, puis tout ce qui est en vente au dernier snapshot, à trier et à filtrer par nom, identifiant, catégorie ou qualité, sans tenir compte des accents ni de la casse.
-- `/markets/:id/items/:id` : courbes de prix, ventes estimées et quantité en vente, sur 24 heures, 7, 30 ou 90 jours, ou tout l'historique. Chaque graphique a son tableau de données.
-- `/search` : cherche dans le royaume du joueur et les matières premières de sa région. L'en-tête de chaque page propose des suggestions à la frappe, avec `/` ou Ctrl-K pour s'y rendre.
+- `/`: the last realm visited, or failing that the list of markets (`/markets`).
+- `/markets/:id`: the biggest rises and falls over 24 hours and the most traded, then everything for sale at the latest snapshot, to sort and filter by name, id, category or quality, ignoring accents and case.
+- `/markets/:id/items/:id`: price curves, estimated sales and quantity for sale, over 24 hours, 7, 30 or 90 days, or the whole history. Each chart has its data table.
+- `/search`: searches the player's realm and the commodities of its region. The header of each page offers suggestions as you type, with `/` or Ctrl-K to get there.
 
-Le schéma appartient au fetcher : le site n'a pas de migrations, et hors tests Postgres refuse ses écritures (`default_transaction_read_only`). Ses tests chargent les migrations du fetcher, donc un changement de schéma qui casse le site les fait échouer. Ils vident leur base et refusent de tourner sur une base dont le nom ne finit pas par `_test`.
+The schema belongs to the fetcher: the site has no migrations, and outside tests Postgres refuses its writes (`default_transaction_read_only`). Its tests load the fetcher's migrations, so a schema change that breaks the site makes them fail. They wipe their database and refuse to run on a database whose name does not end in `_test`.
 
 ## Volume
 
-Environ 1 Go par marché pour 14 jours de détail horaire, et 2 Mo par jour et par marché pour les résumés quotidiens. Ces chiffres extrapolent de vrais snapshots d'`eu/commodities` (11 700 séries) et `eu/hyjal` (18 300 séries) à un historique simulé. Ce qui grossit :
+About 1 GB per market for 14 days of hourly detail, and 2 MB per day and per market for the daily summaries. These figures extrapolate real snapshots of `eu/commodities` (11,700 series) and `eu/hyjal` (18,300 series) to a simulated history. What grows:
 
-- `price_points` et `sales_points`, pendant la rétention ;
-- les tables `*_daily` et `snapshots`, qui ne sont jamais purgées.
+- `price_points` and `sales_points`, during the retention period;
+- the `*_daily` and `snapshots` tables, which are never purged.
 
-Le tout se multiplie par le nombre de marchés suivis, soit tous les royaumes connectés des quatre régions par défaut. `run.ps1` avertit quand il reste moins de 20 Go sur le disque.
+All of it multiplies by the number of markets followed, which by default is every connected realm of the four regions. `run.ps1` warns when less than 20 GB is left on the disk.
 
-## Limites connues
+## Known limits
 
-- Le format réel des réponses n'a été confirmé que sur `eu/commodities` et `eu/hyjal`, pas sur les autres régions.
-- `deploy/install.sh` n'a pas encore été exécuté sur un vrai serveur Linux.
-- Les enchères individuelles ne sont conservées que jusqu'au snapshot suivant. On ne peut donc pas recalculer l'historique avec d'autres statistiques.
-- Les variantes d'un équipement s'affichent par leur liste de bonus, qui ne dit pas grand-chose à un joueur.
-- Les `modifiers` d'objets ne font pas partie de `variant`.
-- Ni la Chine, qui utilise d'autres serveurs, ni WoW Classic.
-- Le site n'a pas d'authentification. `run.ps1` ne l'expose que sur `127.0.0.1` ; en ligne, il est public dès qu'un domaine lui est donné. Les heures sont affichées à l'heure de Paris.
+- The real format of responses has only been confirmed on `eu/commodities` and `eu/hyjal`, not on the other regions.
+- `deploy/install.sh` has not been run on a real Linux server yet.
+- Individual auctions are only kept until the next snapshot, so the history cannot be recomputed with other statistics.
+- The variants of a piece of gear show as their bonus list, which does not mean much to a player.
+- Item `modifiers` are not part of `variant`.
+- Neither China, which uses other servers, nor WoW Classic.
+- The site has no authentication. `run.ps1` only exposes it on `127.0.0.1`; online, it is public as soon as it is given a domain. Times are shown in Paris time.

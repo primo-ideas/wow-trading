@@ -5,8 +5,8 @@ class MarketListingTest < ActiveSupport::TestCase
     @market = create_market
     create_snapshot(@market, NOW)
     create_snapshot(@market, NOW - 1.day)
-    create_item(2589, name: "Étoffe de lin", item_class: "Artisanat", quality: "COMMON")
-    create_item(200000, name: "Épée de test", item_class: "Arme", quality: "EPIC")
+    create_item(2589, name: "Linen Cloth", item_class: "Tradeskill", quality: "COMMON")
+    create_item(200000, name: "Test Sword", item_class: "Weapon", quality: "EPIC")
   end
 
   def listing(**options) = MarketListing.new(@market, **options)
@@ -34,7 +34,7 @@ class MarketListingTest < ActiveSupport::TestCase
   end
 
   test "has no comparison when no snapshot is close to a day old" do
-    market = create_market(connected_realm_id: 1, name: "Récent")
+    market = create_market(connected_realm_id: 1, name: "Recent")
     create_snapshot(market, NOW)
     create_snapshot(market, NOW - 3.days)
     create_price(market, 2589, NOW - 3.days, median: 900)
@@ -82,9 +82,9 @@ class MarketListingTest < ActiveSupport::TestCase
   end
 
   test "each caged pet stays its own product, named after its species" do
-    create_item(82800, name: "Cage à mascotte", quality: "RARE")
-    create_pet(39, name: "Ecureuil mécanique", icon_url: "https://render.example/39.jpg")
-    create_pet(40, name: "Chat", icon_url: "https://render.example/40.jpg")
+    create_item(82800, name: "Pet Cage", quality: "RARE")
+    create_pet(39, name: "Mechanical Squirrel", icon_url: "https://render.example/39.jpg")
+    create_pet(40, name: "Cat", icon_url: "https://render.example/40.jpg")
     create_price(@market, 82800, NOW, median: 100, variant: "pet:39")
     create_price(@market, 82800, NOW, median: 200, variant: "pet:40")
     create_sale(@market, 82800, NOW, quantity: 1, variant: "pet:39")
@@ -92,7 +92,7 @@ class MarketListingTest < ActiveSupport::TestCase
     rows = listing(sort: "price").rows
 
     assert_equal [ "pet:40", "pet:39" ], rows.map(&:series)
-    assert_equal [ "Chat", "Ecureuil mécanique" ], rows.map(&:name)
+    assert_equal [ "Cat", "Mechanical Squirrel" ], rows.map(&:name)
     assert_equal [ "https://render.example/40.jpg", "https://render.example/39.jpg" ], rows.map(&:icon_url)
     assert_equal "pet:39", rows.last.variant_param
     assert_nil rows.first.sold_quantity
@@ -100,10 +100,10 @@ class MarketListingTest < ActiveSupport::TestCase
   end
 
   test "a species the fetcher has not looked up yet still lists its cage" do
-    create_item(82800, name: "Cage à mascotte")
+    create_item(82800, name: "Pet Cage")
     create_price(@market, 82800, NOW, variant: "pet:999")
 
-    assert_equal "Cage à mascotte", listing.rows.first.name
+    assert_equal "Pet Cage", listing.rows.first.name
   end
 
   test "an item not looked up yet is still listed" do
@@ -113,24 +113,25 @@ class MarketListingTest < ActiveSupport::TestCase
 
     assert_equal 999999, row.item_id
     assert_nil row.name
-    assert_equal "Objet #999999", row.display_name
+    assert_equal "Item #999999", row.display_name
   end
 
   test "searches names without regard for case or accents" do
-    create_price(@market, 2589, NOW)
+    create_item(3, name: "Éclair")
+    create_price(@market, 3, NOW)
     create_price(@market, 200000, NOW)
 
-    [ "etoffe", "ÉTOFFE", "toffe de", "Étoffe" ].each do |query|
-      assert_equal [ 2589 ], listing(query: query).rows.map(&:item_id), query
+    [ "eclair", "ÉCLAIR", "clai", "Éclair" ].each do |query|
+      assert_equal [ 3 ], listing(query: query).rows.map(&:item_id), query
     end
   end
 
   test "searches pets by the name of their species" do
-    create_item(82800, name: "Cage à mascotte")
-    create_pet(39, name: "Ecureuil mécanique")
+    create_item(82800, name: "Pet Cage")
+    create_pet(39, name: "Mechanical Squirrel")
     create_price(@market, 82800, NOW, variant: "pet:39")
 
-    assert_equal [ "pet:39" ], listing(query: "ecureuil").rows.map(&:series)
+    assert_equal [ "pet:39" ], listing(query: "squirrel").rows.map(&:series)
     assert_empty listing(query: "cage").rows
   end
 
@@ -145,7 +146,7 @@ class MarketListingTest < ActiveSupport::TestCase
     create_price(@market, 2589, NOW)
 
     assert_empty listing(query: "%").rows
-    assert_empty listing(query: "_toffe").rows
+    assert_empty listing(query: "_inen").rows
   end
 
   test "search text cannot change the query" do
@@ -159,20 +160,21 @@ class MarketListingTest < ActiveSupport::TestCase
     create_price(@market, 2589, NOW)
     create_price(@market, 200000, NOW)
 
-    assert_equal [ 200000 ], listing(item_class: "Arme").rows.map(&:item_id)
+    assert_equal [ 200000 ], listing(item_class: "Weapon").rows.map(&:item_id)
     assert_equal [ 2589 ], listing(quality: "COMMON").rows.map(&:item_id)
-    assert_empty listing(item_class: "Arme", quality: "COMMON").rows
-    assert_equal 1, listing(item_class: "Arme").total
-    assert listing(item_class: "Arme").filtered?
+    assert_empty listing(item_class: "Weapon", quality: "COMMON").rows
+    assert_equal 1, listing(item_class: "Weapon").total
+    assert listing(item_class: "Weapon").filtered?
     assert_not listing.filtered?
   end
 
   test "sorts names alphabetically, not in byte order" do
-    create_item(3, name: "Zèbre")
-    create_price(@market, 2589, NOW)
+    create_item(3, name: "Zebra")
+    create_item(4, name: "Éclair")
     create_price(@market, 3, NOW)
+    create_price(@market, 4, NOW)
 
-    assert_equal [ 2589, 3 ], listing(sort: "name").rows.map(&:item_id)
+    assert_equal [ 4, 3 ], listing(sort: "name").rows.map(&:item_id)
   end
 
   test "each column has its natural direction, and can be reversed" do
@@ -187,7 +189,7 @@ class MarketListingTest < ActiveSupport::TestCase
   end
 
   test "sorting by change leaves products without one at the end, in both directions" do
-    create_item(5, name: "Nouveau")
+    create_item(5, name: "New")
     create_price(@market, 2589, NOW - 1.day, median: 100)
     create_price(@market, 2589, NOW, median: 200)
     create_price(@market, 200000, NOW - 1.day, median: 100)
@@ -234,11 +236,11 @@ class MarketListingTest < ActiveSupport::TestCase
   test "a null byte in the search does not reach the database" do
     create_price(@market, 2589, NOW)
 
-    assert_equal [ 2589 ], listing(query: "eto\0ffe").rows.map(&:item_id)
+    assert_equal [ 2589 ], listing(query: "lin\0en").rows.map(&:item_id)
   end
 
   test "a market without a snapshot lists nothing" do
-    market = create_market(connected_realm_id: 2, name: "Vide")
+    market = create_market(connected_realm_id: 2, name: "Empty")
 
     assert_nil MarketListing.new(market).latest_taken_at
     assert_empty MarketListing.new(market).rows

@@ -2,14 +2,14 @@
   {
     "_links": { "self": { "href": "https://eu.api.blizzard.com/data/wow/item/190396?namespace=static-eu" } },
     "id": 190396,
-    "name": "Minerai de test",
+    "name": "Test Ore",
     "quality": { "type": "RARE", "name": "Rare" },
     "level": 70,
     "required_level": 0,
     "media": { "id": 190396 },
-    "item_class": { "name": "Artisanat", "id": 7 },
-    "item_subclass": { "name": "Métal et pierre", "id": 7 },
-    "inventory_type": { "type": "NON_EQUIP", "name": "Non équipable" },
+    "item_class": { "name": "Tradeskill", "id": 7 },
+    "item_subclass": { "name": "Metal & Stone", "id": 7 },
+    "inventory_type": { "type": "NON_EQUIP", "name": "Non-equippable" },
     "purchase_price": 0,
     "sell_price": 100,
     "max_count": 0,
@@ -19,34 +19,34 @@
   },
   {
     "id": 190395,
-    "name": "Herbe de test",
-    "quality": { "type": "COMMON", "name": "Courant" },
+    "name": "Test Herb",
+    "quality": { "type": "COMMON", "name": "Common" },
     "level": 60,
-    "item_class": { "name": "Artisanat", "id": 7 },
-    "item_subclass": { "name": "Herbes", "id": 9 }
+    "item_class": { "name": "Tradeskill", "id": 7 },
+    "item_subclass": { "name": "Herb", "id": 9 }
   },
   {
     "id": 200000,
-    "name": "Épée de test",
-    "quality": { "type": "EPIC", "name": "Épique" },
+    "name": "Test Sword",
+    "quality": { "type": "EPIC", "name": "Epic" },
     "level": 480,
-    "item_class": { "name": "Arme", "id": 2 },
-    "item_subclass": { "name": "Épées à une main", "id": 7 }
+    "item_class": { "name": "Weapon", "id": 2 },
+    "item_subclass": { "name": "One-Handed Swords", "id": 7 }
   },
   {
     "id": 2589,
-    "name": "Étoffe de lin",
-    "quality": { "type": "COMMON", "name": "Courant" },
+    "name": "Linen Cloth",
+    "quality": { "type": "COMMON", "name": "Common" },
     "level": 5,
-    "item_class": { "name": "Artisanat", "id": 7 },
-    "item_subclass": { "name": "Tissu", "id": 5 }
+    "item_class": { "name": "Tradeskill", "id": 7 },
+    "item_subclass": { "name": "Cloth", "id": 5 }
   },
   {
     "id": 82800,
-    "name": "Cage à mascotte",
+    "name": "Pet Cage",
     "quality": { "type": "RARE", "name": "Rare" },
     "level": 0,
-    "item_class": { "name": "Divers", "id": 15 },
-    "item_subclass": { "name": "Mascotte", "id": 2 }
+    "item_class": { "name": "Miscellaneous", "id": 15 },
+    "item_subclass": { "name": "Companion Pets", "id": 2 }
   }
 ]

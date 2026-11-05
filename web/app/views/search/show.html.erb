@@ -1,8 +1,8 @@
-<% content_for :title, "Recherche" %>
+<% content_for :title, "Search" %>
 
-<h1>Recherche</h1>
+<h1>Search</h1>
 <p class="lead">
-  <% if @search.query.present? %>Résultats pour « <%= @search.query %> », <% end %>sur
+  <% if @search.query.present? %>Results for “<%= @search.query %>” on<% else %>On<% end %>
   <%= search_markets.map(&:display_name).to_sentence %>.
 </p>
 

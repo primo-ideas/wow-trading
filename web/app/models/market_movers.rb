@@ -4,7 +4,7 @@ class MarketMovers
   # Below this, one listing added or removed swings the median: that is noise, not news.
   MIN_AUCTIONS = 5
   CHANGED = "listed.auction_count >= :min_auctions AND listed.reference_median_price IS NOT NULL".freeze
-  # "Objet #244630, +45 %" tells a reader nothing. The listing below still has it.
+  # "Item #244630, +45%" tells a reader nothing. The listing below still has it.
   NAMED = "#{ListedProduct::NAME} IS NOT NULL".freeze
 
   def initialize(market)

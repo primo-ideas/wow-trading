@@ -1,7 +1,7 @@
 <% if !search.searchable? %>
-  <p class="search-hint">Tapez au moins <%= ItemSearch::MIN_LENGTH %> lettres.</p>
+  <p class="search-hint">Type at least <%= ItemSearch::MIN_LENGTH %> letters.</p>
 <% elsif search.results.empty? %>
-  <p class="search-hint">Rien en vente ne correspond à « <%= search.query %> ».</p>
+  <p class="search-hint">Nothing for sale matches “<%= search.query %>”.</p>
 <% else %>
   <ul class="result-list">
     <% search.results.each do |result| %>
@@ -11,7 +11,7 @@
           <%= product_icon(result.icon_url, result.quality) %>
           <span class="result-name <%= quality_class(result.quality) %>"><%= result.display_name %></span>
           <span class="result-market"><%= short_market_name(market) %></span>
-          <span class="result-price"><% if result.several_variants? %><small>dès</small> <% end %><%= money(result.min_price) %></span>
+          <span class="result-price"><% if result.several_variants? %><small>from</small> <% end %><%= money(result.min_price) %></span>
         <% end %>
       </li>
     <% end %>

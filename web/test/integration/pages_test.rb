@@ -6,7 +6,7 @@ class PagesTest < ActionDispatch::IntegrationTest
   end
 
   def seed_item
-    create_item(2589, name: "Étoffe de lin", icon_url: "https://render.example/2589.jpg")
+    create_item(2589, name: "Linen Cloth", icon_url: "https://render.example/2589.jpg")
     create_snapshot(@market, NOW, auction_count: 42)
     create_snapshot(@market, NOW - 1.day)
     create_price(@market, 2589, NOW, median: 123_456)
@@ -34,7 +34,7 @@ class PagesTest < ActionDispatch::IntegrationTest
     get root_path
 
     assert_response :service_unavailable
-    assert_select "h1", "Encore un instant"
+    assert_select "h1", "Just a moment"
   ensure
     connection.execute("ROLLBACK TO SAVEPOINT without_schema")
   end
@@ -48,7 +48,7 @@ class PagesTest < ActionDispatch::IntegrationTest
 
   test "the home page lists the markets being followed, not every known realm" do
     seed_item
-    create_market(connected_realm_id: 77, name: "Jamais relevé")
+    create_market(connected_realm_id: 77, name: "Never fetched")
     create_commodities
 
     get root_path
@@ -56,8 +56,8 @@ class PagesTest < ActionDispatch::IntegrationTest
     assert_response :success
     assert_select "h2", "EU"
     assert_select "a.market-card[href=?]", market_path(@market)
-    assert_select "a.market-card", /Matières premières/
-    assert_select "a.market-card", { text: /Jamais relevé/, count: 0 }
+    assert_select "a.market-card", /Commodities/
+    assert_select "a.market-card", { text: /Never fetched/, count: 0 }
     assert_select ".market-card-meta", /42/
   end
 
@@ -116,10 +116,10 @@ class PagesTest < ActionDispatch::IntegrationTest
 
     assert_response :success
     assert_select "h1", "Archimonde / Naxxramas"
-    assert_select "a.product-link[href=?]", market_item_path(@market, 2589), "Étoffe de lin"
+    assert_select "a.product-link[href=?]", market_item_path(@market, 2589), "Linen Cloth"
     assert_select "img.icon[src=?]", "https://render.example/2589.jpg"
-    assert_select "td .money[aria-label=?]", "12 po 34 pa 56 pc"
-    assert_select "td .change.up", "↗ +23,5 %"
+    assert_select "td .money[aria-label=?]", "12g 34s 56c"
+    assert_select "td .change.up", "↗ +23.5%"
     assert_select ".listing-summary strong", "1"
   end
 
@@ -130,22 +130,22 @@ class PagesTest < ActionDispatch::IntegrationTest
     get market_path(@market)
 
     assert_select ".tabs a.is-selected[href=?]", market_path(@market)
-    assert_select ".tabs a[href=?]", market_path(commodities), "Matières premières"
+    assert_select ".tabs a[href=?]", market_path(commodities), "Commodities"
   end
 
   test "a market page keeps the filters and the sort in its links" do
     seed_item
 
-    get market_path(@market), params: { q: "etoffe", item_class: "Artisanat", sort: "name", dir: "desc" }
+    get market_path(@market), params: { q: "linen", item_class: "Tradeskill", sort: "name", dir: "desc" }
 
     assert_response :success
-    assert_select "a.is-sorted", /Produit/
+    assert_select "a.is-sorted", /Product/
     assert_select "input[name=sort][value=name]"
     assert_select "input[name=dir][value=desc]"
-    assert_select "input[name=q][value=etoffe]"
-    assert_select "select[name=item_class] option[selected]", "Artisanat"
-    assert_select "th a[href*=?]", "item_class=Artisanat"
-    assert_select ".link-quiet", "Effacer les filtres"
+    assert_select "input[name=q][value=linen]"
+    assert_select "select[name=item_class] option[selected]", "Tradeskill"
+    assert_select "th a[href*=?]", "item_class=Tradeskill"
+    assert_select ".link-quiet", "Clear filters"
   end
 
   test "clicking the current sort reverses it" do
@@ -159,10 +159,10 @@ class PagesTest < ActionDispatch::IntegrationTest
   test "a filter without a match says so and offers to clear" do
     seed_item
 
-    get market_path(@market), params: { q: "introuvable" }
+    get market_path(@market), params: { q: "nonexistent" }
 
-    assert_select ".empty-state", /Aucun résultat/
-    assert_select ".link-quiet", "Effacer les filtres"
+    assert_select ".empty-state", /No results/
+    assert_select ".link-quiet", "Clear filters"
   end
 
   test "before a day of history, a market page explains why there is no trend" do
@@ -172,11 +172,11 @@ class PagesTest < ActionDispatch::IntegrationTest
 
     get market_path(@market)
 
-    assert_select ".mover-note", /après une journée de relevés/
+    assert_select ".mover-note", /after a day of snapshots/
   end
 
   test "a market page shows what moved" do
-    create_item(2589, name: "Étoffe de lin")
+    create_item(2589, name: "Linen Cloth")
     create_snapshot(@market, NOW)
     create_snapshot(@market, NOW - 1.day)
     create_price(@market, 2589, NOW - 1.day, median: 100, auctions: MarketMovers::MIN_AUCTIONS)
@@ -185,15 +185,15 @@ class PagesTest < ActionDispatch::IntegrationTest
 
     get market_path(@market)
 
-    assert_select ".mover-card h2", "Plus fortes hausses"
-    assert_select ".mover .mover-name", "Étoffe de lin"
+    assert_select ".mover-card h2", "Biggest rises"
+    assert_select ".mover .mover-name", "Linen Cloth"
   end
 
   test "a market page without snapshots says so" do
     get market_path(@market)
 
     assert_response :success
-    assert_select ".empty-state", /Pas encore de relevé/
+    assert_select ".empty-state", /No snapshot yet/
   end
 
   test "an unknown market is not found" do
@@ -207,12 +207,12 @@ class PagesTest < ActionDispatch::IntegrationTest
 
     travel_to NOW + 1.hour do
       get market_path(@market)
-      assert_select ".freshness.fresh", /il y a/
+      assert_select ".freshness.fresh", /ago/
     end
 
     travel_to NOW + 1.day do
       get market_path(@market)
-      assert_select ".freshness.stale", /Données anciennes/
+      assert_select ".freshness.stale", /Stale data/
     end
   end
 
@@ -222,7 +222,7 @@ class PagesTest < ActionDispatch::IntegrationTest
     get market_item_path(@market, 2589)
 
     assert_response :success
-    assert_select "h1", "Étoffe de lin"
+    assert_select "h1", "Linen Cloth"
     assert_select "[data-chart=line]", 2
     assert_select "[data-chart=columns]", 1
     assert_select "path.line.series-1"
@@ -230,10 +230,10 @@ class PagesTest < ActionDispatch::IntegrationTest
     assert_select "path.area"
     assert_select ".bar"
     assert_select "details.chart-data table", 3
-    assert_select ".summary-price .money[aria-label=?]", "12 po 34 pa 56 pc"
-    assert_select ".summary-changes .change.up", "↗ +23,5 %"
+    assert_select ".summary-price .money[aria-label=?]", "12g 34s 56c"
+    assert_select ".summary-changes .change.up", "↗ +23.5%"
     assert_select ".price-range"
-    assert_select "a[href=?]", "https://www.wowhead.com/fr/item=2589"
+    assert_select "a[href=?]", "https://www.wowhead.com/item=2589"
   end
 
   test "an item page says what is plotted when an item is not on sale anymore" do
@@ -244,14 +244,14 @@ class PagesTest < ActionDispatch::IntegrationTest
     get market_item_path(@market, 2589)
 
     assert_response :success
-    assert_select ".note", /Aucune annonce au dernier relevé/
+    assert_select ".note", /No listings in the latest snapshot/
     assert_select ".summary-price", "—"
   end
 
   test "a caged pet shows its species, without a list of variants" do
-    create_item(82800, name: "Cage à mascotte", quality: "RARE")
-    create_pet(39, name: "Ecureuil mécanique")
-    create_pet(40, name: "Chat")
+    create_item(82800, name: "Pet Cage", quality: "RARE")
+    create_pet(39, name: "Mechanical Squirrel")
+    create_pet(40, name: "Cat")
     create_snapshot(@market, NOW)
     create_price(@market, 82800, NOW, median: 100, variant: "pet:39")
     create_price(@market, 82800, NOW, median: 200, variant: "pet:40")
@@ -259,13 +259,13 @@ class PagesTest < ActionDispatch::IntegrationTest
     get market_item_path(@market, 82800, variant: "pet:40")
 
     assert_response :success
-    assert_select "h1", "Chat"
+    assert_select "h1", "Cat"
     assert_select ".variant-menu", false
-    assert_select "a[href=?]", "https://www.wowhead.com/fr/battle-pet/40"
+    assert_select "a[href=?]", "https://www.wowhead.com/battle-pet/40"
   end
 
   test "gear opens on its most listed variant, and offers the others" do
-    create_item(200000, name: "Épée de test", quality: "EPIC")
+    create_item(200000, name: "Test Sword", quality: "EPIC")
     create_snapshot(@market, NOW)
     create_price(@market, 200000, NOW, median: 100, quantity: 1, variant: "bonus:1")
     create_price(@market, 200000, NOW, median: 200, quantity: 9, variant: "bonus:2")
@@ -273,17 +273,17 @@ class PagesTest < ActionDispatch::IntegrationTest
     get market_item_path(@market, 200000)
 
     assert_response :success
-    assert_select ".summary-price .money[aria-label=?]", "2 pa"
+    assert_select ".summary-price .money[aria-label=?]", "2s"
     assert_select ".variant-menu summary", /Bonus 2/
-    assert_select ".variant-menu a[href=?]", market_item_path(@market, 200000, variant: "bonus:1", period: "7j")
+    assert_select ".variant-menu a[href=?]", market_item_path(@market, 200000, variant: "bonus:1", period: "7d")
   end
 
   test "an item page shows the selected period" do
     seed_item
 
-    get market_item_path(@market, 2589), params: { period: "30j" }
+    get market_item_path(@market, 2589), params: { period: "30d" }
 
-    assert_select ".segmented a.is-selected", "30j"
+    assert_select ".segmented a.is-selected", "30d"
   end
 
   test "parameters of an unexpected shape do not break the pages" do
@@ -317,7 +317,7 @@ class PagesTest < ActionDispatch::IntegrationTest
     get market_item_path(@market, 2589)
 
     assert_response :success
-    assert_select ".empty-state", /Rien sur cette période/
+    assert_select ".empty-state", /Nothing in this period/
   end
 
   test "an unknown item is not found" do
@@ -334,25 +334,25 @@ class PagesTest < ActionDispatch::IntegrationTest
     get market_item_path(@market, 999999)
 
     assert_response :success
-    assert_select "h1", "Objet #999999"
+    assert_select "h1", "Item #999999"
   end
 
   test "the search box suggests what is on sale on the player's markets" do
     seed_item
     get market_path(@market)
 
-    get search_path, params: { q: "etoffe", fragment: "1" }
+    get search_path, params: { q: "linen", fragment: "1" }
 
     assert_response :success
     assert_select "a.result[href=?]", market_item_path(@market, 2589)
-    assert_select ".result-name", "Étoffe de lin"
+    assert_select ".result-name", "Linen Cloth"
     assert_no_match "<html", response.body
   end
 
   test "without script, a search is a page of its own" do
     seed_item
 
-    get search_path, params: { q: "etoffe" }
+    get search_path, params: { q: "linen" }
 
     assert_response :success
     assert_select "html"
@@ -362,11 +362,11 @@ class PagesTest < ActionDispatch::IntegrationTest
   test "a search says when nothing matches, or when it is too short" do
     seed_item
 
-    get search_path, params: { q: "introuvable", fragment: "1" }
-    assert_select ".search-hint", /Rien en vente/
+    get search_path, params: { q: "nonexistent", fragment: "1" }
+    assert_select ".search-hint", /Nothing for sale/
 
     get search_path, params: { q: "e", fragment: "1" }
-    assert_select ".search-hint", /au moins/
+    assert_select ".search-hint", /at least/
   end
 
   test "names coming from the API are escaped everywhere" do

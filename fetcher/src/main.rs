@@ -8,13 +8,13 @@ use chrono::Utc;
 use clap::{Parser, Subcommand};
 use tracing_subscriber::EnvFilter;
 
-use wow_market_fetcher::api::AuctionApi;
-use wow_market_fetcher::api::blizzard::{BlizzardClient, Credentials, Endpoints, RetryPolicy};
-use wow_market_fetcher::api::stub::StubApi;
-use wow_market_fetcher::config::{Region, RealmSelection, Scope};
-use wow_market_fetcher::pipeline::{FetchOptions, Fetcher, RegionSource};
-use wow_market_fetcher::simulation::Simulation;
-use wow_market_fetcher::store::Store;
+use wow_trading_fetcher::api::AuctionApi;
+use wow_trading_fetcher::api::blizzard::{BlizzardClient, Credentials, Endpoints, RetryPolicy};
+use wow_trading_fetcher::api::stub::StubApi;
+use wow_trading_fetcher::config::{Region, RealmSelection, Scope};
+use wow_trading_fetcher::pipeline::{FetchOptions, Fetcher, RegionSource};
+use wow_trading_fetcher::simulation::Simulation;
+use wow_trading_fetcher::store::Store;
 
 const STUB_HISTORY_HOURS: i64 = 7 * 24;
 /// Added to the database name with `--stub`: sample data must never end up in the
@@ -45,7 +45,7 @@ struct Cli {
     scope: Option<Scope>,
 
     /// Language of item and realm names
-    #[arg(long, global = true, env = "WOW_LOCALE", default_value = "fr_FR")]
+    #[arg(long, global = true, env = "WOW_LOCALE", default_value = "en_US")]
     locale: String,
 
     /// Simultaneous API requests per region

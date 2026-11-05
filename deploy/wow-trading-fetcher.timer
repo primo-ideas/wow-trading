@@ -3,7 +3,7 @@
 # A timer rather than cron: a cycle still running is not started twice, logs go to the
 # journal, and the service can depend on Postgres.
 [Unit]
-Description=wow-market: run a fetch cycle regularly
+Description=WoW Trading: run a fetch cycle regularly
 
 [Timer]
 OnBootSec=2min

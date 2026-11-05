@@ -1,13 +1,13 @@
 module ProductsHelper
   QUALITIES = {
-    "POOR" => "Mauvaise",
-    "COMMON" => "Courante",
-    "UNCOMMON" => "Inhabituelle",
+    "POOR" => "Poor",
+    "COMMON" => "Common",
+    "UNCOMMON" => "Uncommon",
     "RARE" => "Rare",
-    "EPIC" => "Épique",
-    "LEGENDARY" => "Légendaire",
-    "ARTIFACT" => "Artefact",
-    "HEIRLOOM" => "Héritage"
+    "EPIC" => "Epic",
+    "LEGENDARY" => "Legendary",
+    "ARTIFACT" => "Artifact",
+    "HEIRLOOM" => "Heirloom"
   }.freeze
 
   def quality_label(quality) = QUALITIES[quality]
@@ -30,7 +30,7 @@ module ProductsHelper
   def variant_label(variant)
     case variant.to_s
     when "" then nil
-    when /\Apet:(.+)\z/ then "Espèce #{$1}"
+    when /\Apet:(.+)\z/ then "Species #{$1}"
     when /\Abonus:(.+)\z/ then "Bonus #{$1.split(",").join(", ")}"
     else variant
     end
@@ -56,9 +56,9 @@ module ProductsHelper
     return unless time
 
     state = Time.current - time > Freshness::STALE_AFTER ? "stale" : "fresh"
-    label = state == "stale" ? "Données anciennes : " : "Relevé "
-    tag.span(class: "freshness #{state}", title: l(time, format: "%-d %b %Y à %Hh%M")) do
-      safe_join([ tag.i("", class: "freshness-dot", "aria-hidden": "true"), "#{label}il y a #{time_ago_in_words(time)}" ])
+    label = state == "stale" ? "Stale data: " : "Updated "
+    tag.span(class: "freshness #{state}", title: l(time, format: "%b %-d, %Y at %H:%M")) do
+      safe_join([ tag.i("", class: "freshness-dot", "aria-hidden": "true"), "#{label}#{time_ago_in_words(time)} ago" ])
     end
   end
 
@@ -75,10 +75,10 @@ module ProductsHelper
         }
       },
       series: [
-        LineChart::Series.new(key: :median, name: "Médiane", css_class: "series-1"),
+        LineChart::Series.new(key: :median, name: "Median", css_class: "series-1"),
         LineChart::Series.new(key: :min, name: "Minimum", css_class: "series-2")
       ],
-      band: LineChart::Band.new(low_key: :p25, high_key: :p75, name: "1er – 3e quartile"),
+      band: LineChart::Band.new(low_key: :p25, high_key: :p75, name: "1st – 3rd quartile"),
       format_value: method(:money_text),
       format_label: method(:money),
       format_axis: method(:axis_money),
@@ -91,7 +91,7 @@ module ProductsHelper
       rows: history.prices.map { |point|
         { time: point.taken_at, title: point_title(point), quantity: point.quantity }
       },
-      series: [ LineChart::Series.new(key: :quantity, name: "En vente", css_class: "series-1") ],
+      series: [ LineChart::Series.new(key: :quantity, name: "For sale", css_class: "series-1") ],
       format_value: method(:number_with_delimiter),
       format_axis: method(:axis_count),
       format_parts: method(:count_parts),
@@ -108,9 +108,9 @@ module ProductsHelper
           title: bucket_title(bucket),
           tick: bucket_tick(bucket),
           details: [
-            [ "Quantité", count_parts(bucket.sold_quantity), number_with_delimiter(bucket.sold_quantity) ],
-            [ "Valeur", money_parts(bucket.sold_value), money_text(bucket.sold_value) ],
-            [ "Annonces", count_parts(bucket.sold_auctions), number_with_delimiter(bucket.sold_auctions) ]
+            [ "Quantity", count_parts(bucket.sold_quantity), number_with_delimiter(bucket.sold_quantity) ],
+            [ "Value", money_parts(bucket.sold_value), money_text(bucket.sold_value) ],
+            [ "Listings", count_parts(bucket.sold_auctions), number_with_delimiter(bucket.sold_auctions) ]
           ]
         }
       },
@@ -121,21 +121,21 @@ module ProductsHelper
   private
 
   def point_title(point)
-    return "#{l(point.taken_at.to_date, format: "%-d %b %Y")}, moyenne du jour" if point.daily
+    return "#{l(point.taken_at.to_date, format: "%b %-d, %Y")}, daily average" if point.daily
 
-    l(point.taken_at, format: "%-d %b, %Hh%M")
+    l(point.taken_at, format: "%b %-d, %H:%M")
   end
 
   # Buckets are UTC days, which is how the fetcher rolls up, whatever the display zone.
   def bucket_title(bucket)
-    return l(bucket.starts_at, format: "%-d %b, %Hh") if bucket.hourly?
+    return l(bucket.starts_at, format: "%b %-d, %H:00") if bucket.hourly?
 
-    l(bucket.starts_at.utc.to_date, format: "%-d %b %Y")
+    l(bucket.starts_at.utc.to_date, format: "%b %-d, %Y")
   end
 
   def bucket_tick(bucket)
-    return l(bucket.starts_at, format: "%Hh") if bucket.hourly?
+    return l(bucket.starts_at, format: "%H:00") if bucket.hourly?
 
-    l(bucket.starts_at.utc.to_date, format: "%-d %b")
+    l(bucket.starts_at.utc.to_date, format: "%b %-d")
   end
 end

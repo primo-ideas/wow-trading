@@ -1,111 +1,123 @@
-# Déployer sur un serveur
+# Deploy to a server
 
-Pour un petit serveur Ubuntu 26.04, par exemple une instance Scaleway. Un seul script installe tout : Postgres, le fetcher et son timer, le site, et Caddy pour le HTTPS si tu donnes un domaine.
+For a small Ubuntu 26.04 server, for example a Scaleway instance. A single script installs everything: Postgres, the fetcher and its timer, the site, and Caddy for HTTPS if you give it a domain.
 
-> **Pas encore testé sur un vrai serveur.** Le site a tourné en mode production et le fetcher sur la vraie API, mais sous Windows. `install.sh` et les unités systemd n'ont jamais été exécutés sous Linux, faute d'y avoir accès pendant le développement. Il est écrit pour pouvoir être relancé sans risque : en cas d'échec, corrige la cause et relance-le.
+> **Not tested on a real server yet.** The site has run in production mode and the fetcher on the real API, but on Windows. `install.sh` and the systemd units have never been run on Linux, for lack of access during development. It is written to be safely run again: if it fails, fix the cause and run it again.
 
-## Installer
+## Install
 
-Prévois une vingtaine de Go de disque pour les matières premières et un royaume, compilation comprise. Le dépôt doit être accessible depuis le serveur.
+Plan for about 20 GB of disk for the commodities and one realm, compilation included. The repository must be reachable from the server.
 
 ```sh
-git clone <url-du-dépôt> wow-market
-cd wow-market
+git clone <repository-url> wow-trading
+cd wow-trading
 sudo SCOPE=eu/commodities,eu/hyjal ./deploy/install.sh
 ```
 
-Compter plusieurs minutes : le fetcher se compile sur place. Le script ajoute 2 Go de swap si le serveur a moins de 4 Go de mémoire et pas de swap, et limite les compilations simultanées.
+Expect several minutes: the fetcher compiles on the spot. The script adds 2 GB of swap if the server has less than 4 GB of memory and no swap, and limits simultaneous compilations to 4, fewer on a small server.
 
-Il s'arrête ensuite en demandant les identifiants Battle.net :
+It then stops and asks for the Battle.net credentials:
 
-1. Crée un client sur <https://develop.battle.net/access/clients>.
-2. Renseigne `BLIZZARD_CLIENT_ID` et `BLIZZARD_CLIENT_SECRET`, sans guillemets :
+1. Create a client on <https://develop.battle.net/access/clients>.
+2. Fill in `BLIZZARD_CLIENT_ID` and `BLIZZARD_CLIENT_SECRET`, without quotes:
 
    ```sh
-   sudo nano /etc/wow-market/fetcher.env
+   sudo nano /etc/wow-trading/fetcher.env
    ```
 
-3. Démarre, puis vérifie :
+3. Start it, then check:
 
    ```sh
-   sudo systemctl enable --now wow-market-fetcher.timer
-   sudo systemctl start --no-block wow-market-fetcher.service
+   sudo systemctl enable --now wow-trading-fetcher.timer
+   sudo systemctl start --no-block wow-trading-fetcher.service
    sudo ./deploy/check.sh
    ```
 
-`check.sh` dit ce qui va et ce qui ne va pas, et n'affiche aucun secret : sa sortie peut se partager pour demander de l'aide.
+`check.sh` says what works and what does not, and shows no secret: its output can be shared to ask for help.
 
-### Voir le site
+### See the site
 
-Par défaut, le site n'écoute que sur le serveur. Depuis ton ordinateur, passe par un tunnel SSH puis ouvre <http://127.0.0.1:3000> :
-
-```sh
-ssh -L 3000:127.0.0.1:3000 <serveur>
-```
-
-Pour le rendre public, fais pointer le DNS du domaine vers le serveur, ouvre les ports 80 et 443 dans son groupe de sécurité Scaleway, puis relance le script. Caddy obtient et renouvelle seul le certificat :
+By default, the site only listens on the server. From your computer, go through an SSH tunnel, then open <http://127.0.0.1:3000>:
 
 ```sh
-sudo DOMAIN=market.example.com ./deploy/install.sh
+ssh -L 3000:127.0.0.1:3000 <server>
 ```
 
-Le site n'a pas d'authentification : une fois public, n'importe qui peut le lire. Il ne peut pas modifier la base, son rôle Postgres n'ayant que le droit de lecture.
+To make it public, point the domain's DNS to the server, open ports 80 and 443 in its Scaleway security group, then run the script again. Caddy obtains and renews the certificate on its own:
 
-## Quand le fetcher tourne
+```sh
+sudo DOMAIN=trading.example.com ./deploy/install.sh
+```
 
-**Un timer systemd, toutes les 5 minutes.**
+The site has no authentication: once public, anyone can read it. It cannot change the database, as its Postgres role only has read access.
 
-Blizzard publie une fois par heure. Le 5 novembre 2026, les 93 marchés européens ont tous changé en même temps, à 10:21:54, 11:21:53 puis 12:21:53 UTC. Ce sont peu de mesures : un seul jour, une seule région.
+## When the fetcher runs
 
-- **Pourquoi pas une seule fois par heure, à la bonne minute :** rien ne garantit que cette minute reste la même, ni qu'elle soit la même dans les autres régions. Une minute décalée ferait perdre une heure de données.
-- **Pourquoi demander souvent ne coûte rien :** chaque demande porte `If-Modified-Since`, et Blizzard répond 304 sans données tant que rien n'a changé. Les nouveaux relevés arrivent ainsi moins de 5 minutes après leur publication.
-- **Pourquoi pas plus souvent :** les données ne changent pas plus vite. Et chaque cycle identifie jusqu'à 1 000 nouveaux objets, soit 2 000 requêtes : à 5 minutes, cela reste sous la limite de 36 000 requêtes par heure de Battle.net.
-- **Pourquoi systemd plutôt que cron :** un cycle encore en cours n'est pas relancé par-dessus lui-même, les logs vont dans le journal, l'ordre de démarrage avec Postgres est géré, et le fetcher tourne sans aucun droit au-delà du réseau et de sa base.
+**A systemd timer, every 5 minutes.**
 
-Pour changer l'intervalle, relance le script :
+Blizzard publishes once an hour. On November 5, 2026, the 93 European markets all changed at the same time, at 10:21:54, 11:21:53 and 12:21:53 UTC. That is few measurements: a single day, a single region.
+
+- **Why not once an hour, at the right minute:** nothing guarantees that this minute stays the same, or that it is the same in other regions. A minute off would lose an hour of data.
+- **Why asking often costs nothing:** each request carries `If-Modified-Since`, and Blizzard answers 304 without data as long as nothing has changed. New snapshots thus arrive less than 5 minutes after they are published.
+- **Why not more often:** the data does not change any faster. And each cycle looks up to 1,000 new items, which is 2,000 requests: at 5 minutes, this stays under Battle.net's limit of 36,000 requests per hour.
+- **Why systemd rather than cron:** a cycle still running is not started again on top of itself, logs go to the journal, the start order with Postgres is handled, and the fetcher runs with no rights beyond the network and its database.
+
+To change the interval, run the script again:
 
 ```sh
 sudo POLL_MINUTES=10 ./deploy/install.sh
 ```
 
-## Dimensionner le serveur
+## Size the server
 
-Ces chiffres viennent de vrais relevés d'`eu/commodities` et `eu/hyjal`, et d'un historique simulé de la même taille, car aucun marché n'a encore deux semaines de données réelles.
+These figures come from real snapshots of `eu/commodities` and `eu/hyjal`, and a simulated history of the same size, as no market has two weeks of real data yet.
 
 | | |
 | --- | --- |
-| Site | 130 Mo de mémoire (mesuré sous Windows) |
-| Fetcher | 110 Mo au plus fort d'un cycle, 20 Mo sans nouveau relevé |
-| Postgres | Un quart de la mémoire du serveur, réglé par le script |
-| Disque, par marché | Environ 1 Go pour 14 jours de détail horaire |
-| Disque, résumés quotidiens | Environ 2 Mo par jour et par marché, jamais purgés |
+| Site | 130 MB of memory (measured on Windows) |
+| Fetcher | 110 MB at the peak of a cycle, 20 MB without a new snapshot |
+| Postgres | A quarter of the server's memory, set by the script |
+| Disk, per market | About 1 GB for 14 days of hourly detail |
+| Disk, daily summaries | About 2 MB per day and per market, never purged |
 
-2 Go de mémoire devraient être confortables pour les matières premières et un ou deux royaumes. Sur 1 Go, cela devrait passer avec le swap, sans garantie : ce n'est pas mesuré. Le temps des pages n'a pas non plus été mesuré sur un petit serveur.
+2 GB of memory should be comfortable for the commodities and one or two realms. On 1 GB, it should work with the swap, without guarantee: this has not been measured. Page times have not been measured on a small server either.
 
-Si le disque manque, réduis `WOW_HOURLY_RETENTION_DAYS` dans `/etc/wow-market/fetcher.env` : 7 divise le détail horaire par deux. Le fetcher ne s'exécute plus quand il reste moins de 1 Go libre, pour que Postgres et le site continuent de fonctionner, et `check.sh` le signale.
+If disk runs short, lower `WOW_HOURLY_RETENTION_DAYS` in `/etc/wow-trading/fetcher.env`: 7 halves the hourly detail. The fetcher no longer runs when less than 1 GB is free, so that Postgres and the site keep working, and `check.sh` reports it.
 
-## Au quotidien
+## Day to day
 
-| Pour | Commande |
+| To | Command |
 | --- | --- |
-| Savoir si tout va bien | `sudo ./deploy/check.sh` |
-| Lire les logs du fetcher | `journalctl -u wow-market-fetcher.service -f` |
-| Lire les logs du site | `journalctl -u wow-market-site.service -f` |
-| Lancer un cycle tout de suite | `sudo systemctl start --no-block wow-market-fetcher.service` |
-| Mettre en pause le fetcher | `sudo systemctl stop wow-market-fetcher.timer` |
-| Mettre à jour | `git pull && sudo ./deploy/install.sh` |
-| Suivre d'autres marchés | Modifier `WOW_SCOPE` dans `/etc/wow-market/fetcher.env`, pris en compte au cycle suivant |
-| Sauvegarder la base | `sudo -u postgres pg_dump -Fc wow_market > wow_market.dump` |
+| Know if all is well | `sudo ./deploy/check.sh` |
+| Read the fetcher's logs | `journalctl -u wow-trading-fetcher.service -f` |
+| Read the site's logs | `journalctl -u wow-trading-site.service -f` |
+| Run a cycle right now | `sudo systemctl start --no-block wow-trading-fetcher.service` |
+| Pause the fetcher | `sudo systemctl stop wow-trading-fetcher.timer` |
+| Update | `git pull && sudo ./deploy/install.sh` |
+| Follow other markets | Change `WOW_SCOPE` in `/etc/wow-trading/fetcher.env`, taken into account at the next cycle |
+| Back up the database | `sudo -u postgres pg_dump -Fc wow_trading > wow_trading.dump` |
 
-Aucune sauvegarde n'est automatique. L'historique ne peut pas se reconstruire, car Blizzard ne donne que l'état présent : un dump régulier, ou les instantanés de volume de Scaleway, sont le seul filet de sécurité.
+No backup is automatic. The history cannot be rebuilt, as Blizzard only gives the present state: a regular dump, or Scaleway's volume snapshots, are the only safety net.
 
-## Ce que le script crée
+### Updating an install from before the rename
 
-| Quoi | Où |
+The project used to be called wow-market. On a server installed under that name, `install.sh` renames the install before updating it: the services, the system user, `/opt/wow-market`, `/etc/wow-market`, the database and its roles. The history and the credentials are kept. A `git pull` still works, as GitHub redirects the old address.
+
+Item names already stored stay in the language they were fetched in, and an existing `fetcher.env` keeps its `WOW_LOCALE`. To change language, set `WOW_LOCALE` in `/etc/wow-trading/fetcher.env`, then forget the stored names:
+
+```sh
+sudo -u postgres psql -d wow_trading -c "UPDATE items SET name = NULL, resolved_at = NULL; UPDATE pets SET name = NULL, resolved_at = NULL;"
+```
+
+The fetcher looks them up again at 1,000 per cycle, which takes about 2 hours for 25,000 items. Until then they show as `Item #…`.
+
+## What the script creates
+
+| What | Where |
 | --- | --- |
-| Programmes | `/opt/wow-market` |
-| Identifiants et réglages, lisibles par root et `wowmarket` seulement | `/etc/wow-market/fetcher.env`, `/etc/wow-market/site.env` |
-| Utilisateur système | `wowmarket` |
-| Base et rôles Postgres | `wow_market`, `wowmarket` (propriétaire, pour le fetcher), `wowmarket_site` (lecture seule, pour le site) |
-| Unités systemd | `wow-market-fetcher.service`, `wow-market-fetcher.timer`, `wow-market-site.service` |
-| Avec un domaine | `/etc/caddy/Caddyfile`, l'ancien étant conservé en `Caddyfile.before-wow-market` |
+| Programs | `/opt/wow-trading` |
+| Credentials and settings, readable by root and `wowtrading` only | `/etc/wow-trading/fetcher.env`, `/etc/wow-trading/site.env` |
+| System user | `wowtrading` |
+| Postgres database and roles | `wow_trading`, `wowtrading` (owner, for the fetcher), `wowtrading_site` (read only, for the site) |
+| systemd units | `wow-trading-fetcher.service`, `wow-trading-fetcher.timer`, `wow-trading-site.service` |
+| With a domain | `/etc/caddy/Caddyfile`, the previous one being kept as `Caddyfile.before-wow-trading` |
