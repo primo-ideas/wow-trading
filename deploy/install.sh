@@ -383,9 +383,10 @@ APACHE
   systemctl restart apache2
 }
 
-# The configuration file of the virtual host that serves this domain over HTTPS.
+# The configuration file of the virtual host that serves this domain over HTTPS: the
+# one on port 80, if any, only sends visitors there.
 apache_vhost_of() {
-  apache2ctl -S 2>/dev/null | grep -F " namevhost $1 (" | sed -n 's/.*(\(.*\):[0-9]*)$/\1/p' | head -n 1
+  apache2ctl -S 2>/dev/null | grep -F "port 443 namevhost $1 (" | sed -n 's/.*(\(.*\):[0-9]*)$/\1/p' | head -n 1
 }
 
 # Left by a run that served the site on a path of a shared domain.
