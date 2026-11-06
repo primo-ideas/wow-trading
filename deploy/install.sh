@@ -9,8 +9,9 @@
 #
 # Options, as environment variables. DOMAIN and BASE_PATH are kept for the next runs:
 #   DOMAIN        Public domain of the site. Its DNS must already point to this server.
-#   BASE_PATH     Path of the site on that domain, when it shares it. Needed if Apache
-#                 already runs here: it then gets a route to the site, and nothing else changes.
+#   BASE_PATH     Path of the site on that domain, when it shares it. Where Apache already
+#                 runs, that path gets a route to the site, and nothing else changes. Without
+#                 one, the Apache virtual host of the domain must send it all to the site.
 #   SCOPE         What to fetch on a first install, by default eu/commodities.
 #   POLL_MINUTES  Minutes between two cycles, by default 5.
 #
@@ -52,7 +53,6 @@ case "$POLL_MINUTES" in
   ''|*[!0-9]*) die "POLL_MINUTES must be a number of minutes" ;;
 esac
 [ "$POLL_MINUTES" -ge 1 ] && [ "$POLL_MINUTES" -le 59 ] || die "POLL_MINUTES must be between 1 and 59"
-[[ "$BASE_PATH" =~ ^(/[A-Za-z0-9_-]+)*$ ]] || die "BASE_PATH must look like /wow-trading"
 
 . /etc/os-release
 [ "${VERSION_ID:-}" = "26.04" ] || printf 'warning: written for Ubuntu 26.04, this is %s\n' "${PRETTY_NAME:-unknown}" >&2
@@ -119,9 +119,18 @@ value_of() { sed -n "s/^$1=//p" "$2" | tail -n 1; }
 
 # What an earlier run was given, so that `git pull && ./deploy/install.sh` keeps it.
 load_saved_settings() {
-  [ -f "$SITE_ENV" ] || return 0
-  [ -n "$DOMAIN" ] || DOMAIN="$(value_of SITE_HOST "$SITE_ENV")"
-  [ -n "$BASE_PATH" ] || BASE_PATH="$(value_of RAILS_RELATIVE_URL_ROOT "$SITE_ENV")"
+  if [ -f "$SITE_ENV" ]; then
+    [ -n "$DOMAIN" ] || DOMAIN="$(value_of SITE_HOST "$SITE_ENV")"
+    [ -n "$BASE_PATH" ] || BASE_PATH="$(value_of RAILS_RELATIVE_URL_ROOT "$SITE_ENV")"
+  fi
+  check_base_path
+}
+
+# Checked once read back as well: a file edited by hand may hold anything. The root of
+# the domain is no path at all, as the site then has the domain to itself.
+check_base_path() {
+  while [ "${BASE_PATH%/}" != "$BASE_PATH" ]; do BASE_PATH="${BASE_PATH%/}"; done
+  [[ "$BASE_PATH" =~ ^(/[A-Za-z0-9_-]+)*$ ]] || die "BASE_PATH must look like /wow-trading, not $BASE_PATH"
 }
 
 # An install from when the project was called wow-market. Installing next to it would
@@ -335,15 +344,28 @@ configure_web_server() {
   fi
 }
 
+APACHE_ROUTE=/etc/apache2/conf-available/wow-trading.conf
+APACHE_ROUTE_ENABLED=/etc/apache2/conf-enabled/wow-trading.conf
+
 # Apache already answers here: Caddy could not take its ports, and the domain may serve
-# other things. One path of the domain goes to the site, and nothing else changes.
+# other things. The route below applies to every domain Apache serves, so it only ever
+# claims a path, never the root: a domain of the site's own is its virtual host's job.
 configure_apache() {
-  [ -n "$BASE_PATH" ] || die "Apache runs on this server: give the site a path of its own with BASE_PATH, like /wow-trading"
-  apache2ctl -S 2>/dev/null | grep " $DOMAIN " >/dev/null || die "Apache has no virtual host for $DOMAIN, so no certificate to serve it with"
+  local vhost
+  vhost="$(apache_vhost_of "$DOMAIN")"
+  [ -n "$vhost" ] || die "Apache has no virtual host for $DOMAIN, so no certificate to serve it with"
+
+  if [ -z "$BASE_PATH" ]; then
+    remove_apache_route
+    grep -q '127\.0\.0\.1:3000' "$vhost" ||
+      die "Apache serves $DOMAIN from $vhost, which does not send it to the site: add ProxyPass / http://127.0.0.1:3000/ to it, or give the site a path of its own with BASE_PATH, like /wow-trading"
+    step "Apache sends https://$DOMAIN to the site from $vhost: leaving it as it is"
+    return
+  fi
 
   step "Configuring Apache for https://$DOMAIN$BASE_PATH"
   a2enmod -q proxy proxy_http headers
-  cat > /etc/apache2/conf-available/wow-trading.conf <<APACHE
+  cat > "$APACHE_ROUTE" <<APACHE
 # Written by deploy/install.sh.
 <Location "$BASE_PATH">
 	ProxyPreserveHost On
@@ -359,6 +381,20 @@ APACHE
   fi
   # New modules take a restart.
   systemctl restart apache2
+}
+
+# The configuration file of the virtual host that serves this domain over HTTPS.
+apache_vhost_of() {
+  apache2ctl -S 2>/dev/null | grep -F " namevhost $1 (" | sed -n 's/.*(\(.*\):[0-9]*)$/\1/p' | head -n 1
+}
+
+# Left by a run that served the site on a path of a shared domain.
+remove_apache_route() {
+  [ -e "$APACHE_ROUTE_ENABLED" ] || return 0
+  grep -q 'Written by deploy/install.sh' "$APACHE_ROUTE" 2>/dev/null || return 0
+  step "Removing the Apache route of an earlier install, which every domain of this server got"
+  a2disconf -q wow-trading
+  systemctl reload apache2
 }
 
 configure_caddy() {

@@ -59,7 +59,13 @@ If the domain serves other things, give the site a path of its own. Where Apache
 sudo DOMAIN=example.com BASE_PATH=/wow-trading ./deploy/install.sh
 ```
 
-The script remembers `DOMAIN` and `BASE_PATH` for the next runs.
+That route applies to every domain Apache serves on the server, which is why it only ever claims a path. To give the site a domain of its own on such a server, give that domain an Apache virtual host that sends everything to the site, for example with `ProxyPass / http://127.0.0.1:3000/` next to the certificate Certbot adds, then run the script with `DOMAIN` alone. It checks that virtual host, leaves it as it is, and removes the route of an earlier run on a path:
+
+```sh
+sudo DOMAIN=trading.example.com ./deploy/install.sh
+```
+
+The script remembers `DOMAIN` and `BASE_PATH` for the next runs. A path of `/` counts as none.
 
 ### On an IPv6-only server
 
