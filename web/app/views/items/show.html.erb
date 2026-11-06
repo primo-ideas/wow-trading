@@ -4,7 +4,9 @@
   <%= link_to current_realm.name, realm_home_path(current_realm) %>
 </nav>
 
-<header class="product-head">
+<%# What the browser keeps of this page for "Recently viewed": it never reaches the server. %>
+<header class="product-head" data-recent-item="<%= { id: @item.id, variant: @product.series.presence, name: @product.name,
+          icon: @product.icon_url.presence, quality: quality_class(@product.quality) }.compact.to_json %>">
   <%= product_icon(@product.icon_url, @product.quality, size: :large) %>
   <div class="product-head-text">
     <h1 class="<%= quality_class(@product.quality) %>"><%= @product.name %></h1>
@@ -21,6 +23,10 @@
   <div class="product-head-side">
     <%= freshness(@history.latest_taken_at) %>
     <%= watch_button(@item.id, @product.series) %>
+    <%= render "watchlists/target_form", item_id: @item.id, series: @product.series %>
+    <% if @listed && watchlist.at_target?(@listed) %>
+      <p class="target-hit">At your target: the cheapest is <%= money(@listed.min_price) %></p>
+    <% end %>
   </div>
 </header>
 
@@ -123,6 +129,8 @@
     <p class="note"><%= render "shared/sales_note" %></p>
   <% end %>
 </turbo-frame>
+
+<%= render "items/rhythm", rhythm: @rhythm %>
 
 <% if @across_markets.comparable? %>
   <%= render "items/across_markets", across_markets: @across_markets, item: @item, current_min: @listed&.min_price %>

@@ -1,5 +1,5 @@
 class ApplicationController < ActionController::Base
-  helper_method :current_realm, :watchlist
+  helper_method :current_realm, :watchlist, :watchlist_hits
 
   # The fetcher creates the schema on its first run, which may not have happened yet.
   rescue_from ActiveRecord::StatementInvalid do |error|
@@ -44,6 +44,12 @@ class ApplicationController < ActionController::Base
 
   def watchlist
     @watchlist ||= Watchlist.new(cookies[:watched], legacy: cookies[:watchlist])
+  end
+
+  # How many products followed have come down to their target on the reader's realm: the
+  # header says so from any page. Nothing is looked up without a target.
+  def watchlist_hits
+    @watchlist_hits ||= current_realm && watchlist.targets? ? watchlist.at_target(current_realm.markets).size : 0
   end
 
   # Other sites may share the domain: this one's cookies stay within its path.

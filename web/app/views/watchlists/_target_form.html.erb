@@ -1,0 +1,13 @@
+<%# Sets the price at which a followed product is flagged. An empty field takes it off. %>
+<% target = watchlist.target_for(item_id, series) %>
+<% field_id = "target-#{item_id}-#{series.parameterize.presence || "item"}" %>
+<%= form_with url: watchlist_target_path, method: :patch, class: [ "target-form", ("target-form-compact" if local_assigns[:compact]) ],
+      data: { turbo_frame: "_top" } do |form| %>
+  <%= hidden_field_tag :item_id, item_id, id: nil %>
+  <%= hidden_field_tag :series, series, id: nil %>
+  <label for="<%= field_id %>" class="<%= "visually-hidden" if local_assigns[:compact] %>">Alert me at</label>
+  <input type="text" id="<%= field_id %>" name="target" value="<%= money_text(target) if target %>"
+         placeholder="12g 50s" autocomplete="off" spellcheck="false" inputmode="text" size="9"
+         data-tip="The price you would buy at. When the cheapest listing reaches it, the watchlist and the header say so. Leave empty to remove it.">
+  <button type="submit"><%= target ? "Change" : "Set" %></button>
+<% end %>

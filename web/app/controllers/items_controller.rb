@@ -13,6 +13,7 @@ class ItemsController < ApplicationController
       format.html do
         @listed = ListedProduct.find_by(auction_house_id: @market.id, item_id: @item.id, series: @product.series)
         @across_markets = ProductAcrossMarkets.new(@market, @item.id, @product.series, realm: current_realm)
+        @rhythm = SalesRhythm.new(@market, @item.id, @product.series, @history.latest_taken_at)
       end
       format.csv do
         send_data @history.to_csv, type: "text/csv",

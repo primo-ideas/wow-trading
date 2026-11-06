@@ -108,7 +108,7 @@
 
     const suggest = debounce(async () => {
       const query = input.value.trim();
-      if (query.length < 2) return box.close();
+      if (query.length < 2) return;
 
       const request = ++latestRequest;
       const response = await fetch(`${form.action}?q=${encodeURIComponent(query)}&fragment=1`);
@@ -121,7 +121,134 @@
       if (document.activeElement === input) box.open();
     }, SEARCH_DELAY);
 
-    input.addEventListener("input", suggest);
+    // Before anything is typed: what this browser opened last, on this realm.
+    function showRecent() {
+      latestRequest++;
+      const recent = readRecent();
+      if (!recent.length || !form.dataset.itemsPath) return box.close();
+
+      const title = document.createElement("p");
+      title.className = "search-hint";
+      title.textContent = "Recently viewed";
+      const list = document.createElement("ul");
+      list.className = "result-list";
+      recent.forEach((item) => {
+        const entry = document.createElement("li");
+        const link = itemLink(form.dataset.itemsPath, item, "result");
+        link.setAttribute("role", "option");
+        entry.append(link);
+        list.append(entry);
+      });
+      results.replaceChildren(title, list);
+      box.reset();
+      box.open();
+    }
+
+    input.addEventListener("input", () => {
+      const query = input.value.trim();
+      if (!query) showRecent();
+      else if (query.length < 2) box.close();
+      else suggest();
+    });
+    input.addEventListener("focus", () => {
+      if (!input.value.trim()) showRecent();
+    });
+  }
+
+  // Products this browser opened, newest first, kept in it alone: the server never sees
+  // this list. Storage may be refused, as in a private window: then there is none.
+  const RECENT_KEY = "wow-trading:recent";
+  const RECENT_LIMIT = 8;
+
+  function validRecent(item) {
+    return item !== null && typeof item === "object" &&
+      /^\d{1,9}$/.test(String(item.id)) &&
+      typeof item.name === "string" && item.name.length <= 200 &&
+      (item.variant === undefined || /^pet:\d{1,9}$/.test(item.variant)) &&
+      (item.quality === undefined || /^q-[a-z]+$/.test(item.quality)) &&
+      (item.icon === undefined || /^https:\/\//.test(item.icon));
+  }
+
+  function readRecent() {
+    try {
+      const list = JSON.parse(window.localStorage.getItem(RECENT_KEY) || "[]");
+      return Array.isArray(list) ? list.filter(validRecent).slice(0, RECENT_LIMIT) : [];
+    } catch {
+      return [];
+    }
+  }
+
+  function writeRecent(list) {
+    try {
+      if (list.length) window.localStorage.setItem(RECENT_KEY, JSON.stringify(list));
+      else window.localStorage.removeItem(RECENT_KEY);
+    } catch {
+      // Nothing kept, nothing lost.
+    }
+  }
+
+  function rememberItem() {
+    const head = document.querySelector("[data-recent-item]");
+    if (!head) return;
+    let item;
+    try {
+      item = JSON.parse(head.dataset.recentItem);
+    } catch {
+      return;
+    }
+    if (!validRecent(item)) return;
+
+    const same = (other) => String(other.id) === String(item.id) && (other.variant || "") === (item.variant || "");
+    writeRecent([item, ...readRecent().filter((other) => !same(other))].slice(0, RECENT_LIMIT));
+  }
+
+  // A link to a product on the realm of the page, with its card on hover. Only text
+  // nodes and checked attributes: nothing stored is parsed as markup.
+  function itemLink(itemsPath, item, className) {
+    const query = item.variant ? `?variant=${encodeURIComponent(item.variant)}` : "";
+    const link = document.createElement("a");
+    link.className = className;
+    link.href = `${itemsPath}${item.id}${query}`;
+    link.dataset.tooltip = `${itemsPath}${item.id}/tooltip${query}`;
+
+    const quality = item.quality || "q-unknown";
+    let icon;
+    if (item.icon) {
+      icon = document.createElement("img");
+      icon.src = item.icon;
+      icon.alt = "";
+      icon.width = 28;
+      icon.height = 28;
+      icon.loading = "lazy";
+    } else {
+      icon = document.createElement("span");
+      icon.setAttribute("aria-hidden", "true");
+    }
+    icon.className = `icon icon-small ${quality}`;
+
+    const name = document.createElement("span");
+    name.className = `result-name ${quality}`;
+    name.textContent = item.name;
+
+    link.append(icon, name);
+    return link;
+  }
+
+  // On a realm's page, under its search box.
+  function setUpRecentStrip(strip) {
+    if (strip.dataset.ready) return;
+    strip.dataset.ready = "true";
+
+    const recent = readRecent();
+    const items = strip.querySelector(".recent-items");
+    items.replaceChildren(...recent.map((item) => itemLink(strip.dataset.itemsPath, item, "recent-chip")));
+    strip.hidden = recent.length === 0;
+
+    strip.querySelector("[data-recent-clear]")?.addEventListener("click", () => {
+      writeRecent([]);
+      items.replaceChildren();
+      strip.hidden = true;
+    });
   }
 
   // The one shortcut every search box has.
@@ -411,6 +538,8 @@
   document.addEventListener("turbo:before-render", hideTip);
 
   function setUp() {
+    rememberItem();
+    document.querySelectorAll("[data-recent-strip]").forEach(setUpRecentStrip);
     document.querySelectorAll("[data-search]").forEach(setUpSearch);
     document.querySelectorAll("[data-realm-picker]").forEach(setUpRealmPicker);
     document.querySelectorAll("[data-live-filters]").forEach(setUpLiveFilters);

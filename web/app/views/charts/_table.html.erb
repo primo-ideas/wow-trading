@@ -5,7 +5,7 @@
       <caption class="visually-hidden"><%= title %></caption>
       <thead>
         <tr>
-          <th scope="col">Date</th>
+          <th scope="col"><%= local_assigns.fetch(:first_column, "Date") %></th>
           <% chart.table_columns.each do |column| %>
             <th scope="col" class="number"><%= column %></th>
           <% end %>

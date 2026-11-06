@@ -3,6 +3,9 @@ module RealmsHelper
 
   def item_on_realm_path(realm, item_id, **options) = realm_item_path(realm.region, realm.slug, item_id, options)
 
+  # Where the pages of the realm's items start, for the script that builds their links.
+  def items_base_path(realm) = "#{realm_home_path(realm)}/items/"
+
   def item_tooltip_path(realm, item_id, variant)
     realm_item_tooltip_path(realm.region, realm.slug, item_id, variant: variant.presence)
   end

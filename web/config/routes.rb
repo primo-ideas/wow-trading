@@ -7,6 +7,7 @@ Rails.application.routes.draw do
   get "realms" => "realms#index", as: :realms
 
   resource :watchlist, only: %i[show update]
+  patch "watchlist/target" => "watchlists#target", as: :watchlist_target
 
   # Everything is seen from a player's realm: /eu/hyjal, /eu/hyjal/items/2589.
   constraints region: /us|eu|kr|tw/, realm: %r{[^/.]+} do

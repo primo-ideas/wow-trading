@@ -1,4 +1,5 @@
-<figure class="chart" data-chart="columns" data-points="<%= chart.points.to_json %>">
+<%# Charts of the same group follow one another on hover: those over time by default. %>
+<figure class="chart" data-chart="columns" data-chart-group="<%= local_assigns.fetch(:group, "time") %>" data-points="<%= chart.points.to_json %>">
   <figcaption class="chart-head">
     <div>
       <h2><%= title %></h2>
@@ -7,7 +8,7 @@
   </figcaption>
 
   <% if chart.empty? %>
-    <p class="muted">No estimated sales in this period.</p>
+    <p class="muted"><%= local_assigns.fetch(:empty, "No estimated sales in this period.") %></p>
   <% else %>
     <div class="plot plot-short plot-no-end" tabindex="0" role="img"
          aria-label="<%= title %>. <%= description %>. Left and right arrows move through the values; all of them are also in the table below the chart.">
@@ -42,6 +43,6 @@
       </div>
     </div>
 
-    <%= render "charts/table", chart: chart, title: title %>
+    <%= render "charts/table", chart: chart, title: title, first_column: local_assigns.fetch(:first_column, "Date") %>
   <% end %>
 </figure>

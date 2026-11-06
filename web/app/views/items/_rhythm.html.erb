@@ -1,0 +1,35 @@
+<%# When the product sells, to know when to list it. Hidden until there is something to say. %>
+<% if rhythm.sold? %>
+  <section class="rhythm" aria-labelledby="rhythm-title">
+    <div class="rhythm-head">
+      <h2 id="rhythm-title">When it sells</h2>
+      <% if rhythm.hours? %>
+        <p>
+          Sells most around <strong data-tip="<%= term(:best_hour) %>" tabindex="0"><%= rhythm.best_hour.label %></strong>,
+          Paris time<% if rhythm.weekdays? %>, and on <strong data-tip="<%= term(:best_day) %>" tabindex="0"><%= rhythm.best_weekday.label.pluralize %></strong><% end %>:
+          list it a little before to be among the cheapest when buyers come.
+        </p>
+      <% end %>
+    </div>
+
+    <% if rhythm.hours? %>
+      <div class="chart-pair">
+        <%= render "charts/columns", chart: rhythm_chart(rhythm.hours, short_label: ->(bucket) { bucket.label.first(2) + "h" }),
+              title: "By hour of the day", group: "hours", first_column: "Hour",
+              description: "Units sold per day in each hour, Paris time, over the last #{rhythm.days.round} days" %>
+        <% if rhythm.weekdays? %>
+          <%= render "charts/columns", chart: rhythm_chart(rhythm.weekdays, short_label: ->(bucket) { bucket.label.first(3) }),
+                title: "By day of the week", group: "weekdays", first_column: "Day",
+                description: "Units sold on each day, on average" %>
+        <% else %>
+          <div class="chart rhythm-wait">
+            <h2>By day of the week</h2>
+            <p class="muted">Comparing days takes a week of history: <%= pluralize(rhythm.days.floor, "day") %> so far.</p>
+          </div>
+        <% end %>
+      </div>
+    <% else %>
+      <p class="muted">Knowing when it sells takes <%= SalesRhythm::MIN_DAYS_FOR_HOURS %> days of history at least.</p>
+    <% end %>
+  </section>
+<% end %>

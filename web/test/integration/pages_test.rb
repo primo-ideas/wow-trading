@@ -779,6 +779,124 @@ class PagesTest < ActionDispatch::IntegrationTest
     assert_response :success
   end
 
+  # Target prices
+
+  test "a target price set on an item page flags it once the cheapest listing reaches it" do
+    seed_item
+    get home
+
+    patch watchlist_target_path, params: { item_id: 2589, series: "", target: "6g" },
+      headers: { "HTTP_REFERER" => "http://www.example.com#{item_page(2589)}" }
+    assert_redirected_to item_page(2589)
+    follow_redirect!
+    assert_select ".watch-button.is-watching"
+    assert_select ".target-form input[name=target][value=?]", "6g"
+    assert_select ".target-hit", false
+    assert_select ".watch-hits", false
+
+    patch watchlist_target_path, params: { item_id: 2589, series: "", target: "7g" }
+    get item_page(2589)
+    assert_select ".target-hit .money[aria-label=?]", "6g 17s 28c"
+    assert_select ".header-link .watch-hits", "1 at target"
+
+    get watchlist_path
+    assert_select ".target-summary", /1 product/
+    assert_select "tr.is-at-target .target-pill", "At target"
+    assert_select "tr.is-at-target .target-form input[value=?]", "7g"
+  end
+
+  test "an empty target takes it off, and an amount that makes no sense changes nothing" do
+    seed_item
+    get home
+    patch watchlist_target_path, params: { item_id: 2589, series: "", target: "7g" }
+
+    patch watchlist_target_path, params: { item_id: 2589, series: "", target: "lots" }
+    follow_redirect!
+    assert_select ".flash", /is not an amount/
+    assert_select "tr.is-at-target"
+
+    patch watchlist_target_path, params: { item_id: 2589, series: "", target: "" }
+    follow_redirect!
+    assert_select "tr.is-at-target", false
+    assert_select "a.product-link", "Linen Cloth"
+  end
+
+  test "a target set from the watchlist follows the product there" do
+    seed_item
+    get home
+    patch watchlist_path, params: { item_id: 2589, series: "" }
+
+    get watchlist_path
+
+    assert_select "th", /Target/
+    assert_select ".target-form input[name=target][value='']"
+  end
+
+  test "parameters of an unexpected shape do not break target prices" do
+    seed_item
+
+    patch watchlist_target_path, params: { item_id: [ "1" ], series: { a: "b" }, target: [ "5g" ] }
+    assert_response :see_other
+    patch watchlist_target_path, params: { item_id: "2589", series: "", target: "9" * 50 }
+    assert_response :see_other
+
+    get watchlist_path
+    assert_response :success
+  end
+
+  # When it sells
+
+  test "an item page shows when it sells, once there are a few days of sales" do
+    create_item(2589, name: "Linen Cloth")
+    (0..72).each { |hours| create_snapshot(@market, NOW - hours.hours) }
+    create_price(@market, 2589, NOW)
+    [ 0, 1, 2 ].each { |day| create_sale(@market, 2589, NOW - day.days, quantity: 4, value: 400) }
+
+    get item_page(2589)
+
+    assert_select ".rhythm h2", "When it sells"
+    assert_select ".rhythm-head strong", "12:00"
+    assert_select ".rhythm [data-chart=columns][data-chart-group=hours]"
+    assert_select ".rhythm-wait", /a week of history/
+    assert_select ".rhythm details.chart-data th", "Hour"
+    assert_select "[data-chart=columns][data-chart-group=time]"
+  end
+
+  test "an item page says nothing of when it sells without sales" do
+    seed_item
+    SalesPoint.delete_all
+
+    get item_page(2589)
+
+    assert_select ".rhythm", false
+  end
+
+  # Recently viewed
+
+  test "an item page hands the browser what to keep of it, and the realm page a place to show it" do
+    seed_item
+
+    get item_page(2589)
+    recent = JSON.parse(css_select(".product-head").first["data-recent-item"])
+    assert_equal({ "id" => 2589, "name" => "Linen Cloth", "icon" => "https://render.example/2589.jpg", "quality" => "q-common" }, recent)
+    assert_select "form.site-search[data-items-path=?]", "#{home}/items/"
+
+    get home
+    assert_select ".recent-strip[hidden][data-items-path=?]", "#{home}/items/"
+  end
+
+  test "a caged pet is kept with its species" do
+    create_item(82800, name: "Pet Cage", quality: "RARE")
+    create_pet(39, name: "Mechanical Squirrel")
+    create_snapshot(@market, NOW)
+    create_price(@market, 82800, NOW, variant: "pet:39")
+
+    get item_page(82800, variant: "pet:39")
+
+    recent = JSON.parse(css_select(".product-head").first["data-recent-item"])
+    assert_equal [ "pet:39", "Mechanical Squirrel" ], recent.values_at("variant", "name")
+  end
+
   # Other realms
 
   test "an item page compares the product to the other realms of its region" do

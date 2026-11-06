@@ -5,6 +5,13 @@
 
 <%= render "search/box", realm: current_realm, id: "realm-search", css_class: "page-search", large: true %>
 
+<%# Filled from this browser's history of products opened, if it has one. %>
+<div class="recent-strip" data-recent-strip data-items-path="<%= items_base_path(current_realm) %>" hidden>
+  <span class="recent-label">Recently viewed</span>
+  <div class="recent-items"></div>
+  <button type="button" class="recent-clear" data-recent-clear>Clear</button>
+</div>
+
 <% if @listing.latest_taken_at.nil? %>
   <div class="empty-state">
     <h2>No prices yet</h2>

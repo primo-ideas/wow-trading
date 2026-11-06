@@ -16,5 +16,8 @@
 
   <%= link_to watchlist_path, class: "header-link" do %>
     ★ Watchlist<% unless watchlist.empty? %> <small><%= watchlist.size %></small><% end %>
+    <% if watchlist_hits.positive? %>
+      <small class="watch-hits" data-tip="<%= pluralize(watchlist_hits, "product") %> at or below your target price on <%= current_realm.name %>"><%= watchlist_hits %> at target</small>
+    <% end %>
   <% end %>
 </header>

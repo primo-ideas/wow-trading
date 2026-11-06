@@ -22,6 +22,9 @@
   <body>
     <%= render "layouts/header" %>
     <main>
+      <% if flash[:alert] %>
+        <p class="flash" role="alert"><%= flash[:alert] %></p>
+      <% end %>
       <%= yield %>
     </main>
     <footer class="site-footer">

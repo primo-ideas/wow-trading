@@ -710,10 +710,90 @@ select:focus {
   font-weight: 600;
 }
 
-.across-markets {
+.across-markets,
+.rhythm {
   display: flex;
   flex-direction: column;
   gap: 10px;
+}
+
+.rhythm-head p {
+  margin-top: 4px;
+  color: var(--ink-2);
+}
+
+.rhythm-head strong {
+  color: var(--gold);
+}
+
+.rhythm-wait {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+/* Recently viewed, from this browser's own history. */
+
+.recent-strip {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  max-width: 720px;
+  margin-top: -8px;
+}
+
+.recent-label {
+  color: var(--ink-3);
+  font-size: 0.8125rem;
+}
+
+.recent-items {
+  display: contents;
+}
+
+.recent-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  max-width: 240px;
+  padding: 2px 10px 2px 3px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--surface);
+  font-size: 0.8125rem;
+  text-decoration: none;
+}
+
+.recent-chip:hover {
+  border-color: var(--line-strong);
+  background: var(--raised);
+}
+
+.recent-chip .icon {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+}
+
+.recent-chip .result-name {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.recent-clear {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--ink-3);
+  font: inherit;
+  font-size: 0.8125rem;
+  cursor: pointer;
+}
+
+.recent-clear:hover {
+  color: var(--gold);
 }
 
 .connected {
@@ -746,6 +826,101 @@ select:focus {
   border-color: var(--gold);
   background: var(--gold-wash);
   color: var(--gold);
+}
+
+/* Forms in a row whose link covers it: above that link, so that they can be used. */
+.listing .watch-form,
+.listing .target-form {
+  position: relative;
+  z-index: 1;
+}
+
+/* Target prices */
+
+.target-form {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.8125rem;
+}
+
+.target-form label {
+  color: var(--ink-3);
+  white-space: nowrap;
+}
+
+.target-form input {
+  width: 9ch;
+  height: 28px;
+  padding: 0 8px;
+  border: 1px solid var(--line-strong);
+  border-radius: 6px;
+  background: var(--surface);
+  color: var(--ink);
+  font: inherit;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+.target-form input:focus {
+  border-color: var(--gold);
+  outline: none;
+}
+
+.target-form button {
+  height: 28px;
+  padding: 0 10px;
+  border: 1px solid var(--line-strong);
+  border-radius: 6px;
+  background: transparent;
+  color: var(--ink-2);
+  font: inherit;
+  cursor: pointer;
+}
+
+.target-form button:hover {
+  border-color: var(--gold);
+  color: var(--gold);
+}
+
+.target-hit,
+.target-summary {
+  color: var(--up);
+  font-size: 0.8125rem;
+}
+
+.target-summary {
+  padding: 10px 14px;
+  border: 1px solid color-mix(in srgb, var(--up) 40%, transparent);
+  border-radius: var(--radius);
+  background: color-mix(in srgb, var(--up) 10%, transparent);
+  font-size: 0.875rem;
+}
+
+.target-summary .product-link::after {
+  content: none;
+}
+
+.target-pill,
+.header-link .watch-hits {
+  padding: 0 6px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--up) 18%, transparent);
+  color: var(--up);
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.listing tr.is-at-target {
+  background: color-mix(in srgb, var(--up) 7%, transparent);
+}
+
+.flash {
+  padding: 10px 14px;
+  border: 1px solid color-mix(in srgb, var(--down) 45%, transparent);
+  border-radius: var(--radius);
+  background: color-mix(in srgb, var(--down) 10%, transparent);
+  color: var(--ink);
 }
 
 .product-head-side {

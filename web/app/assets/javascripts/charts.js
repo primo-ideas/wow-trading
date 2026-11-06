@@ -146,11 +146,16 @@
     return chart;
   }
 
+  // Charts of one group show the same moment together; a chart of hours of the day has
+  // nothing to show for a date, so it keeps to its own group.
   function setUpCharts() {
     const figures = [...document.querySelectorAll("[data-chart]")].filter((figure) => !ready.has(figure));
-    const group = [];
+    const groups = new Map();
     figures.forEach((figure) => {
       ready.add(figure);
+      const key = figure.dataset.chartGroup || "time";
+      if (!groups.has(key)) groups.set(key, []);
+      const group = groups.get(key);
       const chart = setUpChart(figure, group);
       if (chart) group.push(chart);
     });

@@ -14,6 +14,13 @@
     <p>Prices depend on the realm. <%= link_to "Choose yours", realms_path %> to see those of the <%= pluralize(watchlist.size, "product") %> you follow.</p>
   </div>
 <% else %>
+  <% if @at_target.any? %>
+    <p class="target-summary">
+      <strong><%= pluralize(@at_target.size, "product") %></strong> at or below your target price on <%= current_realm.name %>:
+      <%= safe_join(@at_target.map { |row| product_link(row, current_realm) }, ", ") %>.
+    </p>
+  <% end %>
+
   <% if @products.any? %>
     <% sparklines = Sparklines.new(@products, current_realm.latest_taken_at) %>
     <% price_units = money_units(@products.map(&:median_price)) %>
@@ -28,16 +35,21 @@
             <th scope="col" class="number"><span data-tip="<%= term(:minimum) %>" tabindex="0">Minimum</span></th>
             <th scope="col" class="number"><span data-tip="<%= term(:change) %>" tabindex="0">24h</span></th>
             <th scope="col" class="number col-medium"><span data-tip="<%= term(:for_sale) %>" tabindex="0">For sale</span></th>
+            <th scope="col" class="number"><span data-tip="<%= term(:target) %>" tabindex="0">Target</span></th>
             <th scope="col" class="number"><span class="visually-hidden">Watching</span></th>
           </tr>
         </thead>
         <tbody>
           <% @products.each do |row| %>
-            <tr>
+            <% hit = watchlist.at_target?(row) %>
+            <tr class="<%= "is-at-target" if hit %>">
               <td>
                 <div class="product-cell">
                   <%= product_icon(row.icon_url, row.quality) %>
-                  <span class="product-label"><%= product_link row, current_realm %></span>
+                  <span class="product-label">
+                    <%= product_link row, current_realm %>
+                    <% if hit %><small class="target-pill">At target</small><% end %>
+                  </span>
                 </div>
               </td>
               <td class="col-wide"><%= sparkline(sparklines.for(row)) %></td>
@@ -45,6 +57,7 @@
               <td class="number"><%= money_cell(row.min_price, units: min_units) %></td>
               <td class="number"><%= change_pill(row.change) %></td>
               <td class="number col-medium"><%= number_with_delimiter(row.quantity) %></td>
+              <td class="number"><%= render "watchlists/target_form", item_id: row.item_id, series: row.series, compact: true %></td>
               <td class="number"><%= watch_button(row.item_id, row.series, compact: true) %></td>
             </tr>
           <% end %>

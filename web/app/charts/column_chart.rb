@@ -1,13 +1,16 @@
 # One series of columns growing from zero, one per bucket of time.
 #
 # `rows` are hashes holding :value, :time, :title for the tooltip, :tick for the axis,
-# and :details, a list of [name, parts for the tooltip, cell for the table].
+# and :details, a list of [name, parts for the tooltip, cell for the table]. Buckets
+# that recur, like the hours of a day, list their table in order rather than newest first.
 class ColumnChart < ChartFrame
   MAX_X_LABELS = 8
 
-  def initialize(rows:, format_axis:)
+  def initialize(rows:, format_axis:, newest_first: true, max_x_labels: MAX_X_LABELS)
     @rows = rows
     @format_axis = format_axis
+    @newest_first = newest_first
+    @max_x_labels = max_x_labels
   end
 
   def empty? = @rows.empty?
@@ -22,7 +25,7 @@ class ColumnChart < ChartFrame
   end
 
   def x_labels
-    every = [ (@rows.size.to_f / MAX_X_LABELS).ceil, 1 ].max
+    every = [ (@rows.size.to_f / @max_x_labels).ceil, 1 ].max
     @rows.each_with_index.filter_map do |row, index|
       { x: center(index), label: row[:tick] } if (index % every).zero?
     end
@@ -42,7 +45,7 @@ class ColumnChart < ChartFrame
   def table_columns = @rows.first[:details].map(&:first)
 
   def table_rows
-    @rows.reverse.map { |row| [ row[:title], *row[:details].map(&:last) ] }
+    (@newest_first ? @rows.reverse : @rows).map { |row| [ row[:title], *row[:details].map(&:last) ] }
   end
 
   private

@@ -130,6 +130,29 @@ module ProductsHelper
     )
   end
 
+  # Columns for buckets that recur, like the hours of a day: units sold per day in each,
+  # and the price they sold at.
+  def rhythm_chart(buckets, short_label: ->(bucket) { bucket.label })
+    ColumnChart.new(
+      rows: buckets.each_with_index.map { |bucket, index|
+        sold = number_with_precision(bucket.quantity, precision: 1, strip_insignificant_zeros: true, delimiter: ",")
+        {
+          value: bucket.quantity,
+          time: index,
+          title: bucket.label,
+          tick: short_label.call(bucket),
+          details: [
+            [ "Sold per day", [ [ sold, nil ] ], sold ],
+            [ "Average price", money_parts(bucket.price), money_text(bucket.price) ]
+          ]
+        }
+      },
+      format_axis: method(:axis_count),
+      newest_first: false,
+      max_x_labels: 12
+    )
+  end
+
   private
 
   def point_title(point)
